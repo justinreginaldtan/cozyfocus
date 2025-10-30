@@ -36,7 +36,7 @@ export default function HomePage() {
 
   const containerRef = useRef<HTMLDivElement | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
-  const animationRef = useRef<number>();
+  const animationRef = useRef<number | null>(null);
   const lastBroadcastRef = useRef<number>(0);
 
   // Local position refs stay out of React state to avoid re-renders on every animation frame.
@@ -193,7 +193,7 @@ export default function HomePage() {
 
     animationRef.current = requestAnimationFrame(tick);
     return () => {
-      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+      if (animationRef.current !== null) cancelAnimationFrame(animationRef.current);
     };
   }, [guestId, color]);
 
