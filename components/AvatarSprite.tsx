@@ -7,6 +7,7 @@ type AvatarSpriteProps = {
   name: string;
   isSelf: boolean;
   isHovered: boolean;
+  onHoverChange?: (hovered: boolean) => void;
 };
 
 const FACE_SHADOW = "rgba(15, 23, 42, 0.18)";
@@ -18,6 +19,7 @@ function AvatarSpriteComponent({
   name,
   isSelf,
   isHovered,
+  onHoverChange,
 }: AvatarSpriteProps) {
   const labelId = useMemo(() => `${name.replace(/\s+/g, "-")}-label`, [name]);
 
@@ -29,15 +31,29 @@ function AvatarSpriteComponent({
         top: `${y}px`,
       }}
       aria-labelledby={labelId}
+      onPointerEnter={() => onHoverChange?.(true)}
+      onPointerLeave={() => onHoverChange?.(false)}
+      onFocus={() => onHoverChange?.(true)}
+      onBlur={() => onHoverChange?.(false)}
+      tabIndex={0}
     >
       <svg
         width="56"
         height="64"
         viewBox="0 0 56 64"
-        role="img"
-        aria-label={name}
+        aria-hidden="true"
       >
         <defs>
+          <filter
+            id="blur"
+            x="-50%"
+            y="-50%"
+            width="200%"
+            height="200%"
+            colorInterpolationFilters="sRGB"
+          >
+            <feGaussianBlur in="SourceGraphic" stdDeviation="4" />
+          </filter>
           <linearGradient id="bodyGradient" x1="0%" y1="0%" x2="0%" y2="100%">
             <stop offset="0%" stopColor={color} stopOpacity="0.95" />
             <stop offset="100%" stopColor={color} stopOpacity="0.75" />
