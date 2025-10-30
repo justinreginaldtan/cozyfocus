@@ -1,0 +1,89 @@
+:root {
+  color-scheme: light;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+  background-color: #0f172a;
+  color: #0f172a;
+}
+
+body {
+  line-height: 1.5;
+  color: #f8fafc;
+  overflow: hidden;
+}
+
+main {
+  min-height: 100vh;
+}
+
+.scene {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-size: cover;
+  background-position: center;
+}
+
+.overlay-card {
+  position: absolute;
+  inset: auto auto 2rem 2rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 15px 30px rgba(15, 23, 42, 0.55);
+  max-width: 280px;
+}
+
+.overlay-card h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.5rem;
+}
+
+.overlay-card p {
+  margin: 0;
+  font-size: 0.95rem;
+  color: #cbd5f5;
+}
+
+.avatar-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.avatar {
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 9999px;
+  transform: translate(-50%, -50%);
+  box-shadow: 0 10px 25px rgba(15, 23, 42, 0.4);
+  transition: box-shadow 0.2s ease;
+}
+
+.avatar--self {
+  box-shadow: 0 10px 25px rgba(254, 243, 199, 0.5);
+}
+
+.audio-control {
+  margin-top: 0.75rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
