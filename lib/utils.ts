@@ -1,4 +1,4 @@
-const PASTEL_COLORS = [
+export const COZY_AVATAR_COLORS = [
   "#FDE68A",
   "#FCA5A5",
   "#BFDBFE",
@@ -7,7 +7,7 @@ const PASTEL_COLORS = [
   "#FBCFE8",
   "#FDBA74",
   "#A5F3FC",
-];
+] as const;
 
 const COZY_FIRST_WORDS = [
   "Mellow",
@@ -56,7 +56,8 @@ export function createGuestId() {
  * Picks a consistent cozy color for an avatar.
  */
 export function pickAvatarColor() {
-  return PASTEL_COLORS[Math.floor(Math.random() * PASTEL_COLORS.length)];
+  const palette = COZY_AVATAR_COLORS;
+  return palette[Math.floor(Math.random() * palette.length)];
 }
 
 /**

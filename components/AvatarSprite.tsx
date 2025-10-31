@@ -23,12 +23,17 @@ function AvatarSpriteComponent({
 }: AvatarSpriteProps) {
   const labelId = useMemo(() => `${name.replace(/\s+/g, "-")}-label`, [name]);
 
+  const filter = isSelf
+    ? "drop-shadow(0 16px 34px rgba(252, 211, 77, 0.55))"
+    : "drop-shadow(0 12px 24px rgba(15, 23, 42, 0.35))";
+
   return (
     <div
-      className={`avatar avatar-sprite${isSelf ? " avatar--self" : ""}`}
+      className={`absolute pointer-events-auto -translate-x-1/2 -translate-y-1/2 transform transition duration-200 hover:scale-[1.05] focus-visible:scale-[1.05] focus-visible:outline-none`}
       style={{
         left: `${x}px`,
         top: `${y}px`,
+        filter,
       }}
       aria-labelledby={labelId}
       onPointerEnter={() => onHoverChange?.(true)}
@@ -38,6 +43,7 @@ function AvatarSpriteComponent({
       tabIndex={0}
     >
       <svg
+        className="animate-breath"
         width="56"
         height="64"
         viewBox="0 0 56 64"
@@ -108,7 +114,9 @@ function AvatarSpriteComponent({
       </svg>
       <div
         id={labelId}
-        className={`avatar-label${isHovered ? " avatar-label--visible" : ""}`}
+        className={`pointer-events-none absolute bottom-[70px] left-1/2 -translate-x-1/2 rounded-full bg-[rgba(15,23,42,0.9)] px-2.5 py-1 text-[0.72rem] font-medium text-slate-50 shadow-[0_12px_24px_rgba(10,18,35,0.45)] transition duration-200 ${
+          isHovered ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+        }`}
       >
         {name}
       </div>

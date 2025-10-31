@@ -18,3 +18,13 @@ export type TimerState = {
   isRunning: boolean;
   lastUpdatedAt: number;
 };
+
+export type RenderAvatar = {
+  id: string;
+  color: string;
+  name: string;
+  x: number;
+  y: number;
+  isSelf: boolean;
+  isHovered: boolean;
+};
