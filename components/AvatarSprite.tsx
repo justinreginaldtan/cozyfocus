@@ -102,7 +102,7 @@ function mixColor(
 
 function buildPalette(): PaletteSet {
   return {
-    base: "#CDB8F9",
+    base: "#F8DCA4",
     highlight: "#FFF2D0",
     mid: "#F8DCA4",
     lowerMid: "#E7C28C",
@@ -115,7 +115,7 @@ function buildPalette(): PaletteSet {
     scarfHighlight: "#F9E5C8",
     scarfShadow: "#A68FAF",
     scarfTail: "#A67E8C",
-    eye: "#453254",
+    eye: "#352340",
     eyeHighlight: "#E8DFF7",
     mouth: "#D6A3A0",
     blush: "#D9A9C9",
@@ -298,11 +298,14 @@ function drawFrame(
           if (normalizedY < -0.3) {
             targetRGB = mixColor(targetRGB, highlightRGB, 0.2);
           }
+          if (dx <= -2 && normalizedY > 0.2) {
+            targetRGB = mixColor(targetRGB, warmGlowRGB, 0.25);
+          }
           if (dx >= 2 && normalizedY > 0.1) {
-            targetRGB = mixColor(targetRGB, shadowRGB, 0.28);
+            targetRGB = mixColor(targetRGB, lowerMidRGB, 0.22);
           }
           if (dx >= 3 && normalizedY > 0.25) {
-            targetRGB = mixColor(targetRGB, shadowRGB, 0.18);
+            targetRGB = mixColor(targetRGB, highlightRGB, 0.15);
           }
           if (normalizedY > 0.35) {
             targetRGB = mixColor(targetRGB, warmGlowRGB, 0.35);
@@ -319,13 +322,14 @@ function drawFrame(
     }
   }
 
-  const glowRadius = 6;
+  const glowRadius = 8;
   const innerGlowRGB = hexToRgb("#FFE8BF");
   for (let oy = -glowRadius; oy <= glowRadius; oy++) {
     for (let ox = -glowRadius; ox <= glowRadius; ox++) {
       const distance = Math.sqrt(ox * ox + oy * oy);
       if (distance <= glowRadius) {
-        const alpha = 0.35 * (1 - distance / glowRadius);
+        const dither = ((ox + oy) & 1) ? 0.7 : 1;
+        const alpha = 0.32 * (1 - distance / glowRadius) * dither;
         blendPixel(data, centerX + ox, centerY + oy, innerGlowRGB, alpha);
       }
     }
@@ -333,17 +337,22 @@ function drawFrame(
 
   const midPixel = { ...midRGB, a: 255 };
   const auraPixel = { ...auraRGBA };
-  const domeHighlight = mixColor(midRGB, highlightRGB, 0.6);
+  const domeHighlight = mixColor(midRGB, highlightRGB, 0.4);
+  const haloSky = mixColor(innerGlowRGB, hexToRgb("#d6e6ff"), 0.4);
 
   // Top edge adjustments
   setPixel(data, 15, 2, midPixel);
   setPixel(data, 16, 2, midPixel);
-  setPixel(data, 15, 1, { ...domeHighlight, a: 255 });
+  blendPixel(data, 14, 2, domeHighlight, 0.45);
+  blendPixel(data, 17, 2, domeHighlight, 0.35);
+  setPixel(data, 15, 1, { ...haloSky, a: 110 });
+  setPixel(data, 14, 2, { ...haloSky, a: 95 });
 
   // Upper side curvature
   // Upper side curvature (soft cheeks)
-  blendPixel(data, 10, 12, midRGB, 0.4);
-  blendPixel(data, 21, 12, midRGB, 0.4);
+  const cheekTint = mixColor(midRGB, warmGlowRGB, 0.45);
+  blendPixel(data, 10, 12, cheekTint, 0.65);
+  blendPixel(data, 21, 12, cheekTint, 0.65);
 
   // Lower side rounding
   setPixel(data, 9, 15, midPixel);
@@ -351,11 +360,15 @@ function drawFrame(
 
   // Bottom curve smoothing
   setPixel(data, 14, 21, midRGB);
+  setPixel(data, 16, 21, midRGB);
   setPixel(data, 17, 21, midRGB);
   blendPixel(data, 14, 20, midRGB, 0.4);
   blendPixel(data, 17, 20, midRGB, 0.4);
-  const shadowPixel = mixColor(midRGB, shadowRGB, 0.5);
-  setPixel(data, 15, 22, { ...shadowPixel, a: Math.round(255 * 0.6) });
+  const bottomBandColor = mixColor(midRGB, shadowRGB, 0.3);
+  [-2, -1, 1, 2].forEach((dx) => {
+    blendPixel(data, 16 + dx, 20, bottomBandColor, 0.35);
+  });
+  blendPixel(data, 16, 20, bottomBandColor, 0.4);
 
   const mouthColor = hexToRgb(palette.mouth);
   const blushRGB = hexToRgb(palette.blush);
@@ -419,7 +432,7 @@ function drawFrame(
     setPixel(data, x, eyeRow + 1, eyeColor);
   });
 
-  const mouthRow = 11 + offsetY;
+  const mouthRow = 10 + offsetY;
   const mouthPixels = [
     { x: 14, alpha: 0.45 },
     { x: 15, alpha: 0.65 },

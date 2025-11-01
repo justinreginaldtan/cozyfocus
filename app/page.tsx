@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 
+import { AmbientPlayer, AmbientPlayerHandle } from "@/components/AmbientPlayer";
 import { AvatarSprite } from "@/components/AvatarSprite";
 import { PomodoroPanel } from "@/components/PomodoroPanel";
 import { SharedAura } from "@/components/SharedAura";
@@ -73,12 +74,15 @@ export default function HomePage() {
   const [avatars, setAvatars] = useState<RenderAvatar[]>([]);
   const [hoveredAvatarId, setHoveredAvatarId] = useState<string | null>(null);
   const [onlineCount, setOnlineCount] = useState(1);
+  const [infoCollapsed, setInfoCollapsed] = useState(false);
+  const [timerCollapsed, setTimerCollapsed] = useState(false);
 
   const [timerState, setTimerState] = useState<TimerState>(() =>
     createInitialTimerState("solo")
   );
   const timerRef = useRef<TimerState>(timerState);
   const sharedTimerSnapshotRef = useRef<TimerState | null>(null);
+  const ambientPlayerRef = useRef<AmbientPlayerHandle | null>(null);
 
   useEffect(() => {
     hoveredAvatarRef.current = hoveredAvatarId;
@@ -149,6 +153,10 @@ export default function HomePage() {
     []
   );
 
+  const ensureAmbientPlayback = useCallback(() => {
+    void ambientPlayerRef.current?.ensurePlayback();
+  }, []);
+
   const handleToggleMode = useCallback(() => {
     if (!identity || showWelcome) return;
     const requesterId = identity.guestId;
@@ -189,11 +197,12 @@ export default function HomePage() {
   }, [identity, showWelcome, updateTimerState]);
 
   const handleStartStop = useCallback(() => {
+    ensureAmbientPlayback();
     updateTimerState((prev) => ({
       ...prev,
       isRunning: !prev.isRunning,
     }));
-  }, [updateTimerState]);
+  }, [ensureAmbientPlayback, updateTimerState]);
 
   const handleResetTimer = useCallback(() => {
     updateTimerState(
@@ -233,9 +242,10 @@ export default function HomePage() {
   const handleScenePointerDown = useCallback(
     (event: React.PointerEvent<HTMLDivElement>) => {
       event.preventDefault();
+      ensureAmbientPlayback();
       setTargetFromPoint(event.clientX, event.clientY);
     },
-    [setTargetFromPoint]
+    [ensureAmbientPlayback, setTargetFromPoint]
   );
 
   const handleScenePointerMove = useCallback(
@@ -562,21 +572,14 @@ export default function HomePage() {
             <p className="mt-3 text-xs uppercase tracking-[0.28em] text-slate-200/70">
               You are {displayName}. Click to roam.
             </p>
-            <div className="mt-5 space-y-1.5 rounded-xl border border-white/10 bg-white/5 p-4 text-xs text-slate-100/70 backdrop-blur-lounge">
-              <span className="block text-[0.7rem] uppercase tracking-[0.3em] text-slate-100">
-                Ambient Session
-              </span>
-              <span className="block text-[0.7rem] leading-relaxed text-slate-200/70">
-                Leave the music running for steady, soft focus.
-              </span>
-              <audio
-                className="mt-2 w-full rounded-lg bg-white/5"
-                src="/lofi.mp3"
-                loop
-                controls
-                preload="auto"
-              />
-            </div>
+            <AmbientPlayer
+              ref={ambientPlayerRef}
+              src="/lofi.mp3"
+              className="mt-5"
+              collapsible
+              collapsed={infoCollapsed}
+              onToggleCollapse={() => setInfoCollapsed((prev) => !prev)}
+            />
           </div>
         </div>
 
@@ -614,6 +617,9 @@ export default function HomePage() {
             sharedActive={sharedActive}
             companionCount={onlineCount}
             sharedParticipants={sharedParticipants.map(({ id, color }) => ({ id, color }))}
+            collapsible
+            collapsed={timerCollapsed}
+            onToggleCollapse={() => setTimerCollapsed((prev) => !prev)}
           />
         </div>
       </div>
