@@ -49,7 +49,7 @@ const CANVAS_SIZE = 32;
 const DISPLAY_SCALE = 4;
 const DISPLAY_SIZE = CANVAS_SIZE * DISPLAY_SCALE;
 
-const SHADOW_COLOR = "rgba(90, 62, 128, 0.18)";
+const SHADOW_COLOR = "rgba(120, 78, 36, 0.2)";
 const FRAME_SEQUENCE = [0, 1, 2];
 const FRAME_DURATION_MS = 320;
 const BLINK_INTERVAL_MS = 8000;
@@ -103,13 +103,13 @@ function mixColor(
 function buildPalette(): PaletteSet {
   return {
     base: "#CDB8F9",
-    highlight: "#E8DEFF",
-    mid: "#CDB8F9",
-    lowerMid: "#B49DEB",
-    shadow: "#9C85B6",
-    aura: "#C5B5F3",
-    outlineTop: "#D9C9FF",
-    outlineBottom: "#8A74AD",
+    highlight: "#FFF2D0",
+    mid: "#F8DCA4",
+    lowerMid: "#E7C28C",
+    shadow: "#C1A06E",
+    aura: "#F2D5A0",
+    outlineTop: "#DDB98B",
+    outlineBottom: "#A07C58",
     scarfTop: "#F3D5B4",
     scarfBottom: "#C0A9B6",
     scarfHighlight: "#F9E5C8",
@@ -292,7 +292,7 @@ function drawFrame(
   }
 
   const glowRadius = 6;
-  const innerGlowRGB = hexToRgb("#E6DFFF");
+  const innerGlowRGB = hexToRgb("#FFE8BF");
   for (let oy = -glowRadius; oy <= glowRadius; oy++) {
     for (let ox = -glowRadius; ox <= glowRadius; ox++) {
       const distance = Math.sqrt(ox * ox + oy * oy);
@@ -302,6 +302,31 @@ function drawFrame(
       }
     }
   }
+
+  const midPixel = { ...midRGB, a: 255 };
+  const auraPixel = { ...auraRGBA };
+
+  // Top edge adjustments
+  setPixel(data, 15, 2, midPixel);
+  setPixel(data, 16, 2, midPixel);
+  setPixel(data, 10, 3, auraPixel);
+  setPixel(data, 21, 3, auraPixel);
+
+  // Upper side curvature
+  setPixel(data, 9, 6, auraPixel);
+  setPixel(data, 22, 6, auraPixel);
+  setPixel(data, 9, 8, midPixel);
+  setPixel(data, 22, 8, midPixel);
+
+  // Lower side rounding
+  setPixel(data, 8, 13, auraPixel);
+  setPixel(data, 23, 13, auraPixel);
+  setPixel(data, 9, 15, midPixel);
+  setPixel(data, 22, 15, midPixel);
+
+  // Bottom curve smoothing
+  setPixel(data, 14, 21, midPixel);
+  setPixel(data, 17, 21, midPixel);
 
   const mouthColor = hexToRgb(palette.mouth);
   const blushRGB = hexToRgb(palette.blush);
@@ -358,26 +383,29 @@ function drawFrame(
   blendPixel(data, centerX + 4, centerY + 3, blushRGB, 0.25);
   blendPixel(data, centerX + 5, centerY + 3, blushRGB, 0.25);
 
-  setPixel(data, centerX - 4, centerY - 1, eyeColor);
-  setPixel(data, centerX - 4, centerY, eyeColor);
-  setPixel(data, centerX - 3, centerY - 1, eyeColor);
-  setPixel(data, centerX - 3, centerY, eyeColor);
-  blendPixel(data, centerX - 4, centerY - 2, eyeHighlight, 0.7);
-  setPixel(data, centerX + 3, centerY - 1, eyeColor);
-  setPixel(data, centerX + 3, centerY, eyeColor);
-  setPixel(data, centerX + 4, centerY - 1, eyeColor);
-  setPixel(data, centerX + 4, centerY, eyeColor);
-  blendPixel(data, centerX + 4, centerY - 2, eyeHighlight, 0.7);
+  const eyeRow = 14 + offsetY;
+  const eyeColumns = [13, 18];
+  eyeColumns.forEach((x) => {
+    setPixel(data, x, eyeRow, eyeColor);
+    setPixel(data, x, eyeRow + 1, eyeColor);
+  });
 
-  blendPixel(data, centerX - 1, centerY + 3, mouthColor, 0.5);
-  blendPixel(data, centerX, centerY + 4, mouthColor, 0.6);
-  blendPixel(data, centerX + 1, centerY + 3, mouthColor, 0.5);
+  const mouthRow = 11 + offsetY;
+  const mouthPixels = [
+    { x: 14, alpha: 0.45 },
+    { x: 15, alpha: 0.65 },
+    { x: 16, alpha: 0.45 },
+  ];
+
+  mouthPixels.forEach(({ x, alpha }) => {
+    blendPixel(data, x, mouthRow, mouthColor, alpha);
+  });
 
   if (blink) {
-    for (let ix = 0; ix < 4; ix++) {
-      setPixel(data, 13 + ix, centerY - 1, outlineBottom);
-      setPixel(data, 19 + ix, centerY - 1, outlineBottom);
-    }
+    eyeColumns.forEach((x) => {
+      setPixel(data, x, eyeRow, outlineBottom);
+      setPixel(data, x, eyeRow + 1, outlineBottom);
+    });
   }
 
   ctx.putImageData(imageData, 0, 0);
