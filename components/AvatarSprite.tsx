@@ -325,8 +325,12 @@ function drawFrame(
   setPixel(data, 22, 15, midPixel);
 
   // Bottom curve smoothing
-  setPixel(data, 14, 21, midPixel);
-  setPixel(data, 17, 21, midPixel);
+  setPixel(data, 14, 21, midRGB);
+  setPixel(data, 17, 21, midRGB);
+  blendPixel(data, 14, 20, midRGB, 0.4);
+  blendPixel(data, 17, 20, midRGB, 0.4);
+  const shadowPixel = mixColor(midRGB, shadowRGB, 0.5);
+  setPixel(data, 15, 22, { ...shadowPixel, a: Math.round(255 * 0.6) });
 
   const mouthColor = hexToRgb(palette.mouth);
   const blushRGB = hexToRgb(palette.blush);
