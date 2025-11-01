@@ -338,21 +338,11 @@ function drawFrame(
   const midPixel = { ...midRGB, a: 255 };
   const auraPixel = { ...auraRGBA };
   const domeHighlight = mixColor(midRGB, highlightRGB, 0.4);
-  const haloSky = mixColor(innerGlowRGB, hexToRgb("#d6e6ff"), 0.4);
 
   // Top edge adjustments
-  setPixel(data, 15, 2, midPixel);
-  setPixel(data, 16, 2, midPixel);
-  blendPixel(data, 14, 2, domeHighlight, 0.45);
-  blendPixel(data, 17, 2, domeHighlight, 0.35);
-  setPixel(data, 15, 1, { ...haloSky, a: 110 });
-  setPixel(data, 14, 2, { ...haloSky, a: 95 });
+  blendPixel(data, 15, 2, domeHighlight, 0.25);
 
   // Upper side curvature
-  // Upper side curvature (soft cheeks)
-  const cheekTint = mixColor(midRGB, warmGlowRGB, 0.45);
-  blendPixel(data, 10, 12, cheekTint, 0.65);
-  blendPixel(data, 21, 12, cheekTint, 0.65);
 
   // Lower side rounding
   setPixel(data, 9, 15, midPixel);
@@ -360,65 +350,14 @@ function drawFrame(
 
   // Bottom curve smoothing
   setPixel(data, 14, 21, midRGB);
-  setPixel(data, 16, 21, midRGB);
   setPixel(data, 17, 21, midRGB);
-  blendPixel(data, 14, 20, midRGB, 0.4);
-  blendPixel(data, 17, 20, midRGB, 0.4);
-  const bottomBandColor = mixColor(midRGB, shadowRGB, 0.3);
-  [-2, -1, 1, 2].forEach((dx) => {
-    blendPixel(data, 16 + dx, 20, bottomBandColor, 0.35);
-  });
-  blendPixel(data, 16, 20, bottomBandColor, 0.4);
+  blendPixel(data, 14, 20, midRGB, 0.3);
+  blendPixel(data, 17, 20, midRGB, 0.3);
 
   const mouthColor = hexToRgb(palette.mouth);
   const blushRGB = hexToRgb(palette.blush);
   const eyeColor = rgbaHex(palette.eye);
   const eyeHighlight = hexToRgb(palette.eyeHighlight);
-
-  const scarfRowTop = centerY + 6;
-  const scarfTopOffsets = [
-    { dx: -3, dy: scarfRowTop, color: palette.scarfTop },
-    { dx: -2, dy: scarfRowTop, color: palette.scarfTop },
-    { dx: -1, dy: scarfRowTop + 1, color: palette.scarfTop },
-    { dx: 0, dy: scarfRowTop + 2, color: palette.scarfTop },
-    { dx: 1, dy: scarfRowTop + 1, color: palette.scarfTop },
-    { dx: 2, dy: scarfRowTop, color: palette.scarfTop },
-    { dx: 3, dy: scarfRowTop, color: palette.scarfTop },
-  ];
-
-  scarfTopOffsets.forEach(({ dx, dy, color }) => {
-    const blendColor = dx <= -2 ? rgbaHex(palette.scarfHighlight) : rgbaHex(color);
-    setPixel(data, centerX + dx, dy, blendColor);
-    blendPixel(data, centerX + dx, dy - 1, hexToRgb(palette.base), 0.55);
-  });
-
-  const scarfBottomOffsets = [
-    { dx: -3, dy: scarfRowTop + 2, color: palette.scarfBottom },
-    { dx: -2, dy: scarfRowTop + 3, color: palette.scarfBottom },
-    { dx: -1, dy: scarfRowTop + 4, color: palette.scarfShadow },
-    { dx: 0, dy: scarfRowTop + 4, color: palette.scarfShadow },
-    { dx: 1, dy: scarfRowTop + 4, color: palette.scarfShadow },
-    { dx: 2, dy: scarfRowTop + 3, color: palette.scarfBottom },
-    { dx: 3, dy: scarfRowTop + 2, color: palette.scarfBottom },
-  ];
-
-  scarfBottomOffsets.forEach(({ dx, dy, color }) => {
-    setPixel(data, centerX + dx, dy, rgbaHex(color));
-    blendPixel(data, centerX + dx, dy + 1, hexToRgb(palette.base), 0.3);
-  });
-
-  const scarfTexture = [
-    { dx: -1, dy: scarfRowTop + 1 },
-    { dx: 1, dy: scarfRowTop + 1 },
-    { dx: 0, dy: scarfRowTop + 3 },
-  ];
-
-  scarfTexture.forEach(({ dx, dy }) => {
-    blendPixel(data, centerX + dx, dy, hexToRgb(palette.scarfHighlight), 0.4);
-  });
-
-  setPixel(data, centerX + 4, scarfRowTop + 3, rgbaHex(palette.scarfTail, 0.75));
-  setPixel(data, centerX + 4, scarfRowTop + 4, rgbaHex(palette.scarfTail, 0.55));
 
   blendPixel(data, centerX - 5, centerY + 3, blushRGB, 0.25);
   blendPixel(data, centerX - 4, centerY + 3, blushRGB, 0.25);
@@ -430,17 +369,6 @@ function drawFrame(
   eyeColumns.forEach((x) => {
     setPixel(data, x, eyeRow, eyeColor);
     setPixel(data, x, eyeRow + 1, eyeColor);
-  });
-
-  const mouthRow = 10 + offsetY;
-  const mouthPixels = [
-    { x: 14, alpha: 0.45 },
-    { x: 15, alpha: 0.65 },
-    { x: 16, alpha: 0.45 },
-  ];
-
-  mouthPixels.forEach(({ x, alpha }) => {
-    blendPixel(data, x, mouthRow, mouthColor, alpha);
   });
 
   if (blink) {
