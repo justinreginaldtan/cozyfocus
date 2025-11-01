@@ -117,7 +117,7 @@ function buildPalette(): PaletteSet {
     scarfTail: "#A67E8C",
     eye: "#453254",
     eyeHighlight: "#E8DFF7",
-    mouth: "#EECBB8",
+    mouth: "#D6A3A0",
     blush: "#D9A9C9",
   };
 }
@@ -211,9 +211,12 @@ function drawFrame(
   const midRGB = hexToRgb(palette.mid);
   const lowerMidRGB = hexToRgb(palette.lowerMid);
   const shadowRGB = hexToRgb(palette.shadow);
-  const outlineTop = rgbaHex(palette.outlineTop, 0.6);
-  const outlineBottom = rgbaHex(palette.outlineBottom, 0.9);
+  const outlineTop = rgbaHex(palette.outlineTop, 0.42);
+  const outlineBottom = rgbaHex(palette.outlineBottom, 0.95);
+  const deepOutlineRGB = hexToRgb("#8C6A3C");
+  const deepOutline = { ...deepOutlineRGB, a: 240 };
   const auraRGBA = rgbaHex(palette.aura, 0.4);
+  const warmGlowRGB = hexToRgb("#F3C8A5");
 
   for (let y = 0; y < CANVAS_SIZE; y++) {
     for (let x = 0; x < CANVAS_SIZE; x++) {
@@ -259,7 +262,10 @@ function drawFrame(
       if (distance > effectiveRadius && distance <= effectiveRadius + 3) {
         const clampedY = Math.max(-0.6, Math.min(0.6, normalizedY));
         const verticalFalloff = 0.55 + (Math.cos((clampedY + 0.6) * Math.PI) + 1) * 0.2;
-        const auraPixel = { ...auraRGBA, a: Math.round(auraRGBA.a * verticalFalloff) };
+        const auraPixel = {
+          ...auraRGBA,
+          a: Math.round(auraRGBA.a * verticalFalloff * 0.8),
+        };
         if (auraPixel.a > 10) {
           setPixel(data, x, y, auraPixel);
         }
@@ -269,7 +275,8 @@ function drawFrame(
       if (distance <= effectiveRadius) {
         const outlineColor = normalizedY < 0 ? outlineTop : outlineBottom;
         if (distance >= effectiveRadius - 0.8) {
-          setPixel(data, x, y, outlineColor);
+          const edgeColor = normalizedY > 0.28 ? deepOutline : outlineColor;
+          setPixel(data, x, y, edgeColor);
         } else {
           let targetRGB = midRGB;
           if (normalizedY < -0.2) {
@@ -282,10 +289,31 @@ function drawFrame(
             const t = clamp((normalizedY - 0.2) / 0.5, 0, 1);
             targetRGB = mixColor(lowerMidRGB, shadowRGB, t);
           }
-          if (dx < -2 && normalizedY < 0.2) {
-            targetRGB = mixColor(targetRGB, highlightRGB, 0.3);
+          if (dx <= -2 && normalizedY < 0.15) {
+            targetRGB = mixColor(targetRGB, highlightRGB, 0.35);
+          }
+          if (dx <= -3 && normalizedY < -0.05) {
+            targetRGB = mixColor(targetRGB, highlightRGB, 0.25);
+          }
+          if (normalizedY < -0.3) {
+            targetRGB = mixColor(targetRGB, highlightRGB, 0.2);
+          }
+          if (dx >= 2 && normalizedY > 0.1) {
+            targetRGB = mixColor(targetRGB, shadowRGB, 0.28);
+          }
+          if (dx >= 3 && normalizedY > 0.25) {
+            targetRGB = mixColor(targetRGB, shadowRGB, 0.18);
+          }
+          if (normalizedY > 0.35) {
+            targetRGB = mixColor(targetRGB, warmGlowRGB, 0.35);
+            if (normalizedY > 0.45) {
+              targetRGB = mixColor(targetRGB, warmGlowRGB, 0.45);
+            }
           }
           setPixel(data, x, y, { ...targetRGB, a: 255 });
+          if (normalizedY > 0.3 && distance >= effectiveRadius - 1.1) {
+            blendPixel(data, x, y, deepOutlineRGB, 0.45);
+          }
         }
       }
     }
@@ -305,22 +333,19 @@ function drawFrame(
 
   const midPixel = { ...midRGB, a: 255 };
   const auraPixel = { ...auraRGBA };
+  const domeHighlight = mixColor(midRGB, highlightRGB, 0.6);
 
   // Top edge adjustments
   setPixel(data, 15, 2, midPixel);
   setPixel(data, 16, 2, midPixel);
-  setPixel(data, 10, 3, auraPixel);
-  setPixel(data, 21, 3, auraPixel);
+  setPixel(data, 15, 1, { ...domeHighlight, a: 255 });
 
   // Upper side curvature
-  setPixel(data, 9, 6, auraPixel);
-  setPixel(data, 22, 6, auraPixel);
-  setPixel(data, 9, 8, midPixel);
-  setPixel(data, 22, 8, midPixel);
+  // Upper side curvature (soft cheeks)
+  blendPixel(data, 10, 12, midRGB, 0.4);
+  blendPixel(data, 21, 12, midRGB, 0.4);
 
   // Lower side rounding
-  setPixel(data, 8, 13, auraPixel);
-  setPixel(data, 23, 13, auraPixel);
   setPixel(data, 9, 15, midPixel);
   setPixel(data, 22, 15, midPixel);
 
@@ -387,7 +412,7 @@ function drawFrame(
   blendPixel(data, centerX + 4, centerY + 3, blushRGB, 0.25);
   blendPixel(data, centerX + 5, centerY + 3, blushRGB, 0.25);
 
-  const eyeRow = 14 + offsetY;
+  const eyeRow = 16 + offsetY;
   const eyeColumns = [13, 18];
   eyeColumns.forEach((x) => {
     setPixel(data, x, eyeRow, eyeColor);
