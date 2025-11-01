@@ -14,95 +14,192 @@ type AvatarSpriteProps = {
   spiritState?: CompanionState;
 };
 
+type PaletteSet = {
+  base: string;
+  highlight: string;
+  mid: string;
+  lowerMid: string;
+  shadow: string;
+  aura: string;
+  outlineTop: string;
+  outlineBottom: string;
+  scarfTop: string;
+  scarfBottom: string;
+  scarfHighlight: string;
+  scarfShadow: string;
+  scarfTail: string;
+  eye: string;
+  eyeHighlight: string;
+  mouth: string;
+  blush: string;
+};
+
+type StateConfig = {
+  floatDistance: number;
+  floatDuration: number;
+  flickerDuration: number;
+  flickerMin: number;
+  flickerMax: number;
+  brightness: number;
+  palette: PaletteSet;
+  pulse?: boolean;
+};
+
 const CANVAS_SIZE = 32;
 const DISPLAY_SCALE = 4;
 const DISPLAY_SIZE = CANVAS_SIZE * DISPLAY_SCALE;
 
-const PALETTE = {
-  base: "#d8b7ff",
-  highlight: "#f7b7b7",
-  aura: "#f9d7a5",
-};
-
-const OUTLINE = "#7e5cbc";
 const SHADOW_COLOR = "rgba(90, 62, 128, 0.18)";
-
 const FRAME_SEQUENCE = [0, 1, 2];
 const FRAME_DURATION_MS = 320;
-
-const STATE_CONFIG: Record<
-  CompanionState,
-  {
-    floatDistance: number;
-    floatDuration: number;
-    flickerMin: number;
-    flickerMax: number;
-    brightness: number;
-  }
-> = {
-  idle: {
-    floatDistance: 2,
-    floatDuration: 4,
-    flickerMin: 0.94,
-    flickerMax: 1,
-    brightness: 1,
-  },
-  shared: {
-    floatDistance: 2.2,
-    floatDuration: 3.4,
-    flickerMin: 0.96,
-    flickerMax: 1.06,
-    brightness: 1.08,
-  },
-  break: {
-    floatDistance: 1.6,
-    floatDuration: 4.6,
-    flickerMin: 0.92,
-    flickerMax: 0.98,
-    brightness: 0.93,
-  },
-  complete: {
-    floatDistance: 2.4,
-    floatDuration: 3.2,
-    flickerMin: 0.98,
-    flickerMax: 1.08,
-    brightness: 1.12,
-  },
-};
+const BLINK_INTERVAL_MS = 8000;
+const BLINK_FRAME_MS = 140;
 
 const FRAME_SETTINGS = [
-  { offsetY: -1, highlightBias: 1 },
-  { offsetY: 0, highlightBias: 0.9 },
-  { offsetY: 1, highlightBias: 1.1 },
-];
+  { offsetY: -1 },
+  { offsetY: 0 },
+  { offsetY: 1 },
+] as const;
 
-function hexToRgba(hex: string, alpha = 255) {
+const SYNC_ANCHOR =
+  typeof performance !== "undefined" ? performance.now() : Date.now();
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(Math.max(value, min), max);
+}
+
+function hexToRgb(hex: string) {
   const normalized = hex.replace("#", "");
   const intVal = parseInt(normalized, 16);
   return {
     r: (intVal >> 16) & 255,
     g: (intVal >> 8) & 255,
     b: intVal & 255,
-    a: alpha,
   };
 }
+
+function rgbaHex(hex: string, alpha = 1) {
+  const { r, g, b } = hexToRgb(hex);
+  return { r, g, b, a: Math.round(alpha * 255) };
+}
+
+function rgbaString(hex: string, alpha: number) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function mixColor(
+  a: { r: number; g: number; b: number },
+  b: { r: number; g: number; b: number },
+  t: number
+) {
+  return {
+    r: Math.round(a.r + (b.r - a.r) * t),
+    g: Math.round(a.g + (b.g - a.g) * t),
+    b: Math.round(a.b + (b.b - a.b) * t),
+  };
+}
+
+function buildPalette(): PaletteSet {
+  return {
+    base: "#CDB8F9",
+    highlight: "#E8DEFF",
+    mid: "#CDB8F9",
+    lowerMid: "#B49DEB",
+    shadow: "#9C85B6",
+    aura: "#C5B5F3",
+    outlineTop: "#D9C9FF",
+    outlineBottom: "#8A74AD",
+    scarfTop: "#F3D5B4",
+    scarfBottom: "#C0A9B6",
+    scarfHighlight: "#F9E5C8",
+    scarfShadow: "#A68FAF",
+    scarfTail: "#A67E8C",
+    eye: "#453254",
+    eyeHighlight: "#E8DFF7",
+    mouth: "#EECBB8",
+    blush: "#D9A9C9",
+  };
+}
+
+const PALETTE = buildPalette();
+
+const STATE_CONFIG: Record<CompanionState, StateConfig> = {
+  idle: {
+    floatDistance: 2,
+    floatDuration: 5,
+    flickerDuration: 3.4,
+    flickerMin: 0.98,
+    flickerMax: 1,
+    brightness: 0.95,
+    palette: PALETTE,
+  },
+  shared: {
+    floatDistance: 2.1,
+    floatDuration: 4.6,
+    flickerDuration: 2.8,
+    flickerMin: 0.99,
+    flickerMax: 1.02,
+    brightness: 1,
+    palette: PALETTE,
+  },
+  break: {
+    floatDistance: 1.8,
+    floatDuration: 5.2,
+    flickerDuration: 3.6,
+    flickerMin: 0.97,
+    flickerMax: 0.99,
+    brightness: 0.9,
+    palette: PALETTE,
+  },
+  complete: {
+    floatDistance: 2.4,
+    floatDuration: 4,
+    flickerDuration: 2.3,
+    flickerMin: 0.99,
+    flickerMax: 1.04,
+    brightness: 1.05,
+    palette: PALETTE,
+    pulse: true,
+  },
+};
 
 function setPixel(
   data: Uint8ClampedArray,
   x: number,
   y: number,
-  rgb: { r: number; g: number; b: number; a?: number }
+  color: { r: number; g: number; b: number; a?: number }
 ) {
   if (x < 0 || x >= CANVAS_SIZE || y < 0 || y >= CANVAS_SIZE) return;
-  const index = (y * CANVAS_SIZE + x) * 4;
-  data[index] = rgb.r;
-  data[index + 1] = rgb.g;
-  data[index + 2] = rgb.b;
-  data[index + 3] = rgb.a ?? 255;
+  const idx = (y * CANVAS_SIZE + x) * 4;
+  data[idx] = color.r;
+  data[idx + 1] = color.g;
+  data[idx + 2] = color.b;
+  data[idx + 3] = color.a ?? 255;
 }
 
-function drawFrame(ctx: CanvasRenderingContext2D, frameIndex: number, blink: boolean) {
-  const { offsetY, highlightBias } = FRAME_SETTINGS[frameIndex];
+function blendPixel(
+  data: Uint8ClampedArray,
+  x: number,
+  y: number,
+  color: { r: number; g: number; b: number },
+  alpha: number
+) {
+  if (x < 0 || x >= CANVAS_SIZE || y < 0 || y >= CANVAS_SIZE) return;
+  const idx = (y * CANVAS_SIZE + x) * 4;
+  const inv = 1 - alpha;
+  data[idx] = Math.round(data[idx] * inv + color.r * alpha);
+  data[idx + 1] = Math.round(data[idx + 1] * inv + color.g * alpha);
+  data[idx + 2] = Math.round(data[idx + 2] * inv + color.b * alpha);
+}
+
+function drawFrame(
+  ctx: CanvasRenderingContext2D,
+  frameIndex: number,
+  blink: boolean,
+  palette: PaletteSet
+) {
+  const { offsetY } = FRAME_SETTINGS[frameIndex];
   const imageData = ctx.createImageData(CANVAS_SIZE, CANVAS_SIZE);
   const data = imageData.data;
 
@@ -110,57 +207,177 @@ function drawFrame(ctx: CanvasRenderingContext2D, frameIndex: number, blink: boo
   const centerY = 16 + offsetY;
   const bodyRadius = 9.5;
 
-  const baseColor = hexToRgba(PALETTE.base);
-  const highlightColor = hexToRgba(PALETTE.highlight);
-  const auraColor = hexToRgba(PALETTE.aura, 120);
-  const outlineColor = hexToRgba(OUTLINE);
+  const highlightRGB = hexToRgb(palette.highlight);
+  const midRGB = hexToRgb(palette.mid);
+  const lowerMidRGB = hexToRgb(palette.lowerMid);
+  const shadowRGB = hexToRgb(palette.shadow);
+  const outlineTop = rgbaHex(palette.outlineTop, 0.6);
+  const outlineBottom = rgbaHex(palette.outlineBottom, 0.9);
+  const auraRGBA = rgbaHex(palette.aura, 0.4);
 
   for (let y = 0; y < CANVAS_SIZE; y++) {
     for (let x = 0; x < CANVAS_SIZE; x++) {
       const dx = x - centerX;
       const dy = y - centerY;
-
       const normalizedY = dy / bodyRadius;
-      const topTaper = normalizedY < 0 ? Math.abs(normalizedY) * 4 : 0;
-      const tailFactor = normalizedY > 0.3 ? (normalizedY - 0.3) * 3 : 0;
-      const effectiveRadius = bodyRadius - topTaper + tailFactor;
+
+      const topAdjust =
+        normalizedY < -0.2
+          ? Math.abs(dx) <= 1
+            ? -0.4
+            : Math.abs(dx) === 2
+            ? -0.2
+            : 0
+          : 0;
+      const bottomAdjust =
+        normalizedY > 0.45
+          ? Math.abs(dx) <= 1
+            ? 0.6
+            : Math.abs(dx) <= 3
+            ? 0.2
+            : -0.3
+          : 0;
+      const sideRound =
+        Math.abs(dx) >= 5 && Math.abs(dx) <= 6 && normalizedY > -0.1 && normalizedY < 0.4
+          ? 0.3
+          : 0;
+      const bellyLift =
+        normalizedY > 0.15
+          ? normalizedY > 0.45
+            ? 1
+            : 0.6
+          : 0;
+
+      const effectiveRadius =
+        bodyRadius -
+        (normalizedY < 0 ? Math.abs(normalizedY) * 4 + topAdjust : 0) +
+        bottomAdjust +
+        sideRound +
+        bellyLift;
       const distance = Math.sqrt(dx * dx + dy * dy);
 
-      if (distance <= effectiveRadius + 2.2) {
-        setPixel(data, x, y, auraColor);
+      if (distance > effectiveRadius && distance <= effectiveRadius + 3) {
+        const clampedY = Math.max(-0.6, Math.min(0.6, normalizedY));
+        const verticalFalloff = 0.55 + (Math.cos((clampedY + 0.6) * Math.PI) + 1) * 0.2;
+        const auraPixel = { ...auraRGBA, a: Math.round(auraRGBA.a * verticalFalloff) };
+        if (auraPixel.a > 10) {
+          setPixel(data, x, y, auraPixel);
+        }
+        continue;
       }
 
       if (distance <= effectiveRadius) {
-        let color = baseColor;
-
-        if (distance >= effectiveRadius - 0.6) {
-          color = outlineColor;
-        } else if (dx + dy * highlightBias < -4 && dy < 1) {
-          color = highlightColor;
-        } else if (distance <= effectiveRadius * 0.55 && dy < 0) {
-          color = highlightColor;
+        const outlineColor = normalizedY < 0 ? outlineTop : outlineBottom;
+        if (distance >= effectiveRadius - 0.8) {
+          setPixel(data, x, y, outlineColor);
+        } else {
+          let targetRGB = midRGB;
+          if (normalizedY < -0.2) {
+            const t = clamp((-0.2 - normalizedY) / 0.4, 0, 1);
+            targetRGB = mixColor(highlightRGB, midRGB, t);
+          } else if (normalizedY < 0.2) {
+            const t = clamp((normalizedY + 0.2) / 0.4, 0, 1);
+            targetRGB = mixColor(midRGB, lowerMidRGB, t);
+          } else {
+            const t = clamp((normalizedY - 0.2) / 0.5, 0, 1);
+            targetRGB = mixColor(lowerMidRGB, shadowRGB, t);
+          }
+          if (dx < -2 && normalizedY < 0.2) {
+            targetRGB = mixColor(targetRGB, highlightRGB, 0.3);
+          }
+          setPixel(data, x, y, { ...targetRGB, a: 255 });
         }
-
-        setPixel(data, x, y, color);
       }
     }
   }
 
-  // Wisp tail pixels
-  setPixel(data, centerX - 1, centerY + 9, baseColor);
-  setPixel(data, centerX, centerY + 10, baseColor);
-  setPixel(data, centerX + 1, centerY + 11, outlineColor);
+  const glowRadius = 6;
+  const innerGlowRGB = hexToRgb("#E6DFFF");
+  for (let oy = -glowRadius; oy <= glowRadius; oy++) {
+    for (let ox = -glowRadius; ox <= glowRadius; ox++) {
+      const distance = Math.sqrt(ox * ox + oy * oy);
+      if (distance <= glowRadius) {
+        const alpha = 0.35 * (1 - distance / glowRadius);
+        blendPixel(data, centerX + ox, centerY + oy, innerGlowRGB, alpha);
+      }
+    }
+  }
+
+  const mouthColor = hexToRgb(palette.mouth);
+  const blushRGB = hexToRgb(palette.blush);
+  const eyeColor = rgbaHex(palette.eye);
+  const eyeHighlight = hexToRgb(palette.eyeHighlight);
+
+  const scarfRowTop = centerY + 6;
+  const scarfTopOffsets = [
+    { dx: -3, dy: scarfRowTop, color: palette.scarfTop },
+    { dx: -2, dy: scarfRowTop, color: palette.scarfTop },
+    { dx: -1, dy: scarfRowTop + 1, color: palette.scarfTop },
+    { dx: 0, dy: scarfRowTop + 2, color: palette.scarfTop },
+    { dx: 1, dy: scarfRowTop + 1, color: palette.scarfTop },
+    { dx: 2, dy: scarfRowTop, color: palette.scarfTop },
+    { dx: 3, dy: scarfRowTop, color: palette.scarfTop },
+  ];
+
+  scarfTopOffsets.forEach(({ dx, dy, color }) => {
+    const blendColor = dx <= -2 ? rgbaHex(palette.scarfHighlight) : rgbaHex(color);
+    setPixel(data, centerX + dx, dy, blendColor);
+    blendPixel(data, centerX + dx, dy - 1, hexToRgb(palette.base), 0.55);
+  });
+
+  const scarfBottomOffsets = [
+    { dx: -3, dy: scarfRowTop + 2, color: palette.scarfBottom },
+    { dx: -2, dy: scarfRowTop + 3, color: palette.scarfBottom },
+    { dx: -1, dy: scarfRowTop + 4, color: palette.scarfShadow },
+    { dx: 0, dy: scarfRowTop + 4, color: palette.scarfShadow },
+    { dx: 1, dy: scarfRowTop + 4, color: palette.scarfShadow },
+    { dx: 2, dy: scarfRowTop + 3, color: palette.scarfBottom },
+    { dx: 3, dy: scarfRowTop + 2, color: palette.scarfBottom },
+  ];
+
+  scarfBottomOffsets.forEach(({ dx, dy, color }) => {
+    setPixel(data, centerX + dx, dy, rgbaHex(color));
+    blendPixel(data, centerX + dx, dy + 1, hexToRgb(palette.base), 0.3);
+  });
+
+  const scarfTexture = [
+    { dx: -1, dy: scarfRowTop + 1 },
+    { dx: 1, dy: scarfRowTop + 1 },
+    { dx: 0, dy: scarfRowTop + 3 },
+  ];
+
+  scarfTexture.forEach(({ dx, dy }) => {
+    blendPixel(data, centerX + dx, dy, hexToRgb(palette.scarfHighlight), 0.4);
+  });
+
+  setPixel(data, centerX + 4, scarfRowTop + 3, rgbaHex(palette.scarfTail, 0.75));
+  setPixel(data, centerX + 4, scarfRowTop + 4, rgbaHex(palette.scarfTail, 0.55));
+
+  blendPixel(data, centerX - 5, centerY + 3, blushRGB, 0.25);
+  blendPixel(data, centerX - 4, centerY + 3, blushRGB, 0.25);
+  blendPixel(data, centerX + 4, centerY + 3, blushRGB, 0.25);
+  blendPixel(data, centerX + 5, centerY + 3, blushRGB, 0.25);
+
+  setPixel(data, centerX - 4, centerY - 1, eyeColor);
+  setPixel(data, centerX - 4, centerY, eyeColor);
+  setPixel(data, centerX - 3, centerY - 1, eyeColor);
+  setPixel(data, centerX - 3, centerY, eyeColor);
+  blendPixel(data, centerX - 4, centerY - 2, eyeHighlight, 0.7);
+  setPixel(data, centerX + 3, centerY - 1, eyeColor);
+  setPixel(data, centerX + 3, centerY, eyeColor);
+  setPixel(data, centerX + 4, centerY - 1, eyeColor);
+  setPixel(data, centerX + 4, centerY, eyeColor);
+  blendPixel(data, centerX + 4, centerY - 2, eyeHighlight, 0.7);
+
+  blendPixel(data, centerX - 1, centerY + 3, mouthColor, 0.5);
+  blendPixel(data, centerX, centerY + 4, mouthColor, 0.6);
+  blendPixel(data, centerX + 1, centerY + 3, mouthColor, 0.5);
 
   if (blink) {
     for (let ix = 0; ix < 4; ix++) {
-      setPixel(data, 13 + ix, centerY - 1, outlineColor);
-      setPixel(data, 19 + ix, centerY - 1, outlineColor);
+      setPixel(data, 13 + ix, centerY - 1, outlineBottom);
+      setPixel(data, 19 + ix, centerY - 1, outlineBottom);
     }
-  } else {
-    setPixel(data, 14, centerY - 2, outlineColor);
-    setPixel(data, 14, centerY - 1, outlineColor);
-    setPixel(data, 20, centerY - 2, outlineColor);
-    setPixel(data, 20, centerY - 1, outlineColor);
   }
 
   ctx.putImageData(imageData, 0, 0);
@@ -175,9 +392,10 @@ function AvatarSpriteComponent({
   spiritState = "idle",
 }: AvatarSpriteProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const labelId = useMemo(() => `${name.replace(/\s+/g, "-")}-label`, [name]);
+  const stateConfig = STATE_CONFIG[spiritState];
   const [frameIndex, setFrameIndex] = useState(0);
   const [blink, setBlink] = useState(false);
-  const labelId = useMemo(() => `${name.replace(/\s+/g, "-")}-label`, [name]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -185,8 +403,8 @@ function AvatarSpriteComponent({
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
     ctx.imageSmoothingEnabled = false;
-    drawFrame(ctx, FRAME_SEQUENCE[frameIndex], blink);
-  }, [frameIndex, blink]);
+    drawFrame(ctx, FRAME_SEQUENCE[frameIndex], blink, stateConfig.palette);
+  }, [frameIndex, blink, stateConfig.palette]);
 
   useEffect(() => {
     const intervalId = window.setInterval(() => {
@@ -204,8 +422,8 @@ function AvatarSpriteComponent({
       }
       timeoutId = window.setTimeout(() => {
         setBlink(false);
-      }, 140);
-    }, 8000);
+      }, BLINK_FRAME_MS);
+    }, BLINK_INTERVAL_MS);
 
     return () => {
       window.clearInterval(intervalId);
@@ -215,17 +433,23 @@ function AvatarSpriteComponent({
     };
   }, []);
 
-  const stateStyle = STATE_CONFIG[spiritState];
+  const now = typeof performance !== "undefined" ? performance.now() : Date.now();
+  const elapsedSeconds = (now - SYNC_ANCHOR) / 1000;
+  const floatPhase = elapsedSeconds % stateConfig.floatDuration;
+  const flickerPhase = elapsedSeconds % stateConfig.flickerDuration;
 
   const containerStyle: CSSProperties = {
     left: `${x}px`,
     top: `${y}px`,
-    filter: `brightness(${stateStyle.brightness})`,
+    filter: `brightness(${stateConfig.brightness})`,
   };
-  (containerStyle as any)["--float-distance"] = `${stateStyle.floatDistance}px`;
-  (containerStyle as any)["--float-duration"] = `${stateStyle.floatDuration}s`;
-  (containerStyle as any)["--flicker-min"] = stateStyle.flickerMin;
-  (containerStyle as any)["--flicker-max"] = stateStyle.flickerMax;
+  (containerStyle as any)["--float-distance"] = `${stateConfig.floatDistance}px`;
+  (containerStyle as any)["--float-duration"] = `${stateConfig.floatDuration}s`;
+  (containerStyle as any)["--float-delay"] = `${-floatPhase}s`;
+  (containerStyle as any)["--flicker-duration"] = `${stateConfig.flickerDuration}s`;
+  (containerStyle as any)["--flicker-delay"] = `${-flickerPhase}s`;
+  (containerStyle as any)["--flicker-min"] = stateConfig.flickerMin;
+  (containerStyle as any)["--flicker-max"] = stateConfig.flickerMax;
 
   return (
     <div
@@ -238,7 +462,19 @@ function AvatarSpriteComponent({
       onBlur={() => onHoverChange?.(false)}
       tabIndex={0}
     >
-      <div className="focus-spirit__motion">
+      <div
+        className={`focus-spirit__motion${
+          stateConfig.pulse ? " focus-spirit__motion--pulse" : ""
+        }`}
+      >
+        <span
+          className="focus-spirit__glow"
+          style={{
+            backgroundColor: rgbaString(stateConfig.palette.aura, 0.12),
+            boxShadow: `0 0 16px ${rgbaString(stateConfig.palette.aura, 0.4)}`,
+          }}
+          aria-hidden="true"
+        />
         <canvas
           ref={canvasRef}
           width={CANVAS_SIZE}
@@ -248,7 +484,9 @@ function AvatarSpriteComponent({
             height: DISPLAY_SIZE,
             imageRendering: "pixelated",
           }}
-          className="focus-spirit__canvas"
+          className={`focus-spirit__canvas${
+            stateConfig.pulse ? " focus-spirit__canvas--pulse" : ""
+          }`}
           aria-hidden="true"
         />
       </div>
@@ -263,18 +501,36 @@ function AvatarSpriteComponent({
       </div>
       <style jsx>{`
         .focus-spirit__motion {
+          position: relative;
           display: flex;
           justify-content: center;
-          animation: focusSpiritFloat var(--float-duration, 4s) ease-in-out infinite;
+          align-items: center;
+          animation: focusSpiritFloat var(--float-duration, 5s)
+              ease-in-out var(--float-delay, 0s) infinite;
+        }
+
+        .focus-spirit__motion--pulse {
+          animation: focusSpiritFloat var(--float-duration, 5s)
+              ease-in-out var(--float-delay, 0s) infinite,
+            focusSpiritPulse 1.4s ease-out forwards;
         }
 
         .focus-spirit__canvas {
-          animation: focusSpiritFlicker 2.4s ease-in-out infinite;
+          position: relative;
+          z-index: 1;
+          animation: focusSpiritFlicker var(--flicker-duration, 3.4s)
+              ease-in-out var(--flicker-delay, 0s) infinite;
+        }
+
+        .focus-spirit__canvas--pulse {
+          animation: focusSpiritFlicker var(--flicker-duration, 3.4s)
+              ease-in-out var(--flicker-delay, 0s) infinite,
+            focusSpiritCanvasPulse 1.4s ease-out forwards;
         }
 
         .focus-spirit__shadow {
           display: block;
-          width: 40px;
+          width: 42px;
           height: 3px;
           margin: 6px auto 0;
           border-radius: 9999px;
@@ -297,7 +553,34 @@ function AvatarSpriteComponent({
             opacity: var(--flicker-max, 1);
           }
           60% {
-            opacity: var(--flicker-min, 0.94);
+            opacity: var(--flicker-min, 0.98);
+          }
+        }
+
+        @keyframes focusSpiritPulse {
+          0% {
+            filter: brightness(1);
+          }
+          40% {
+            filter: brightness(1.2);
+          }
+          100% {
+            filter: brightness(1);
+          }
+        }
+
+        @keyframes focusSpiritCanvasPulse {
+          0% {
+            opacity: 1;
+          }
+          35% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.92;
+          }
+          100% {
+            opacity: 1;
           }
         }
       `}</style>
