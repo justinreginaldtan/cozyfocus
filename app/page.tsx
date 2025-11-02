@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useShallow } from "zustand/react/shallow";
-import { Moon } from "lucide-react";
+import { Moon, Eye } from "lucide-react";
+import { motion } from "framer-motion";
 
 import { AmbientPlayer, AmbientPlayerHandle } from "@/components/AmbientPlayer";
 import { AvatarDrawer } from "@/components/AvatarDrawer";
@@ -31,10 +32,11 @@ type RemoteAvatarState = {
   y: number;
   targetX: number;
   targetY: number;
+  status?: string;
 };
 
 const DEFAULT_FOCUS_DURATION_MS = 25 * 60 * 1000;
-const MOVE_SPEED = 0.65; // normalized units per second
+const MOVE_SPEED = 0.13; // normalized units per second
 const REMOTE_SMOOTHING = 0.18;
 const PRESENCE_BROADCAST_INTERVAL_MS = 120;
 const TIMER_BROADCAST_INTERVAL_MS = 1000;
@@ -85,6 +87,9 @@ export default function HomePage() {
   const [isCornerstoneMenuOpen, setIsCornerstoneMenuOpen] = useState(false);
   const [isAvatarDrawerOpen, setIsAvatarDrawerOpen] = useState(false);
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
+  const [status, setStatus] = useState("");
+  const [isStatusShared, setIsStatusShared] = useState(false);
+  const [zenMode, setZenMode] = useState(false);
   const parallaxTargetRef = useRef({ x: 0, y: 0 });
   const parallaxFrameRef = useRef<number | null>(null);
   const [toastMessage, setToastMessage] = useState("");
@@ -163,14 +168,12 @@ export default function HomePage() {
     window.localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(identity));
   }, [identity, showWelcome]);
 
-  // Auto-detect system accessibility preferences
   useEffect(() => {
     if (typeof window === "undefined") return;
 
     const body = document.body;
-    body.dataset.theme = "twilight"; // Fixed theme
+    body.dataset.theme = "twilight"; 
 
-    // Detect reduced motion preference
     const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
     const updateReducedMotion = () => {
       body.dataset.motion = reducedMotionQuery.matches ? "reduced" : "full";
@@ -178,7 +181,6 @@ export default function HomePage() {
     updateReducedMotion();
     reducedMotionQuery.addEventListener("change", updateReducedMotion);
 
-    // Detect contrast preference
     const contrastQuery = window.matchMedia("(prefers-contrast: more)");
     const updateContrast = () => {
       body.dataset.contrast = contrastQuery.matches ? "high" : "normal";
@@ -192,25 +194,21 @@ export default function HomePage() {
     };
   }, []);
 
-  // Sync identity.color → avatarColor only when a new identity loads (track by guestId)
   const hasSyncedIdentityColorRef = useRef<string | null>(null);
   useEffect(() => {
     if (!identity?.color || !identity.guestId) return;
-    // Only sync once per identity guestId to avoid loops
     if (hasSyncedIdentityColorRef.current === identity.guestId) return;
     if (identity.color.toLowerCase() !== avatarColor.toLowerCase()) {
       setAvatarColor(identity.color);
     }
     hasSyncedIdentityColorRef.current = identity.guestId;
-  }, [identity?.guestId, setAvatarColor]); // Only depend on guestId changing (new identity), not color
+  }, [identity?.guestId, setAvatarColor]);
 
-  // Sync avatarColor → identity.color (when user changes avatar color via drawer/settings)
   useEffect(() => {
     if (!identity || syncingColorRef.current) return;
     if (identity.color.toLowerCase() === avatarColor.toLowerCase()) {
       return;
     }
-    // Only update if colors don't match and we're not currently syncing
     syncingColorRef.current = true;
     setIdentity((prev) => {
       if (!prev) {
@@ -220,11 +218,22 @@ export default function HomePage() {
       syncingColorRef.current = false;
       return { ...prev, color: avatarColor };
     });
-  }, [avatarColor]); // Only depend on avatarColor, not identity
+  }, [avatarColor]);
 
   useEffect(() => {
     timerRef.current = timerState;
   }, [timerState]);
+
+  useEffect(() => {
+    if (!zenMode) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setZenMode(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [zenMode]);
 
   useEffect(() => {
     setTimerState((prev) => {
@@ -387,7 +396,6 @@ export default function HomePage() {
     });
   }, []);
 
-  // Establish Supabase realtime channel for presence and timer sync.
   useEffect(() => {
     if (!identity || showWelcome) {
       return;
@@ -424,6 +432,7 @@ export default function HomePage() {
                   name: presence.name ?? "Wanderer",
                   targetX: normalizedX,
                   targetY: normalizedY,
+                  status: presence.status,
                 }
               : {
                   color: presence.color,
@@ -432,14 +441,13 @@ export default function HomePage() {
                   y: normalizedY,
                   targetX: normalizedX,
                   targetY: normalizedY,
+                  status: presence.status,
                 }
           );
         });
       });
 
-      // Detect joins and leaves (only after initial load)
       if (previousPresenceIdsRef.current.size > 0) {
-        // Check for new joins
         currentPresenceIds.forEach((id) => {
           if (!previousPresenceIdsRef.current.has(id)) {
             const newcomer = nextRemotes.get(id);
@@ -451,7 +459,6 @@ export default function HomePage() {
           }
         });
 
-        // Check for leaves
         previousPresenceIdsRef.current.forEach((id) => {
           if (!currentPresenceIds.has(id)) {
             const leaver = remoteAvatarsRef.current.get(id);
@@ -524,7 +531,6 @@ export default function HomePage() {
     };
   }, [identity, setTimerState, showWelcome]);
 
-  // Main animation loop: movement, presence broadcast, remote interpolation, timer ticking.
   useEffect(() => {
     if (!identity || showWelcome) {
       return;
@@ -574,6 +580,7 @@ export default function HomePage() {
           x: localPosition.x,
           y: localPosition.y,
           updatedAt: nowMs,
+          status: isStatusShared ? status : undefined,
         });
         lastPresenceBroadcastRef.current = nowMs;
       }
@@ -588,6 +595,7 @@ export default function HomePage() {
           y: localPosition.y * height,
           isSelf: true,
           isHovered: hoveredId === resolvedGuestId,
+          status: isStatusShared ? status : undefined,
         },
       ];
 
@@ -602,6 +610,7 @@ export default function HomePage() {
           y: avatar.y * height,
           isSelf: false,
           isHovered: hoveredId === id,
+          status: avatar.status,
         });
       });
 
@@ -719,19 +728,32 @@ export default function HomePage() {
         <div className="pointer-events-none absolute right-[12%] top-[28%] h-72 w-72 rounded-full bg-[#38bdf81a] blur-3xl" />
         <div className="pointer-events-none absolute bottom-[18%] left-[30%] h-80 w-80 rounded-full bg-[#f973af1a] blur-3xl" />
 
-        <button
-          type="button"
-          onClick={() => setIsCornerstoneMenuOpen(true)}
-          className="group absolute bottom-12 left-8 flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 md:bottom-16 md:left-16"
-        >
-          <Moon className="h-4 w-4 transition duration-150 group-hover:text-[#E8C877]" />
-          <span className="text-[0.68rem] uppercase tracking-[0.26em]">
-            Menu
-          </span>
-        </button>
+        <div className={`absolute inset-0 transition-opacity duration-500 ${zenMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
 
-        {/* Music player - bottom center */}
-        <div className="pointer-events-auto absolute bottom-8 left-1/2 w-full max-w-lg -translate-x-1/2 px-4 md:bottom-12">
+        <motion.div 
+          whileHover={{ scale: 1.1 }}
+          className="absolute bottom-8 right-8 flex items-center gap-2"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <button
+            type="button"
+            onClick={() => setZenMode(true)}
+            className="group flex items-center gap-2 rounded-full border border-white/15 bg-white/5 p-2.5 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            aria-label="Enter Zen Mode"
+          >
+            <Eye className="h-5 w-5 transition duration-150 group-hover:text-slate-300" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsCornerstoneMenuOpen(true)}
+            className="group flex items-center gap-2 rounded-full border border-white/15 bg-white/5 p-2.5 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            aria-label="Open menu"
+          >
+            <Moon className="h-5 w-5 transition duration-150 group-hover:text-[#E8C877]" />
+          </button>
+        </motion.div>
+
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2" onPointerDown={(e) => e.stopPropagation()}>
           <AmbientPlayer
             ref={ambientPlayerRef}
             src="/lofi.mp3"
@@ -751,6 +773,7 @@ export default function HomePage() {
               name={avatar.name}
               isSelf={avatar.isSelf}
               isHovered={avatar.isHovered}
+              status={avatar.status}
               onHoverChange={(hovering) =>
                 handleHoverChange(avatar.id, hovering)
               }
@@ -759,7 +782,11 @@ export default function HomePage() {
         </div>
 
         {/* Timer - top right */}
-        <div className="absolute top-12 right-8 w-full max-w-xs md:top-14 md:right-16">
+        <motion.div 
+          whileHover={{ scale: 1.05 }}
+          className="absolute top-8 right-8 w-full max-w-xs" 
+          onPointerDown={(e) => e.stopPropagation()}
+        >
           <PomodoroPanel
             mode={timerState.mode}
             phase={timerState.phase}
@@ -774,7 +801,16 @@ export default function HomePage() {
             sharedActive={sharedActive}
             companionCount={onlineCount}
             sharedParticipants={sharedParticipants.map(({ id, color }) => ({ id, color }))}
+            focusSessionMinutes={focusSessionMinutes}
+            onFocusSessionChange={setFocusSessionMinutes}
+            breakSessionMinutes={breakSessionMinutes}
+            onBreakSessionChange={setBreakSessionMinutes}
+            status={status}
+            onStatusChange={setStatus}
+            isStatusShared={isStatusShared}
+            onIsStatusSharedChange={setIsStatusShared}
           />
+        </motion.div>
         </div>
       </div>
       <CornerstoneMenu
@@ -789,6 +825,9 @@ export default function HomePage() {
         participants={participants}
         onlineCount={onlineCount}
         displayName={displayName}
+        initialName={identity?.displayName ?? ""}
+        initialColor={identity?.color ?? "#FDE68A"}
+        onConfirm={handleWelcomeConfirm}
       />
       <AvatarDrawer
         open={isAvatarDrawerOpen}

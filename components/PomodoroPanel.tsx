@@ -6,6 +6,8 @@ import {
   RotateCcw,
   Users,
   User,
+  Plus,
+  Minus,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -23,6 +25,16 @@ type PomodoroPanelProps = {
   sharedActive?: boolean;
   companionCount?: number;
   sharedParticipants?: { id: string; color: string }[];
+  // New props for settings
+  focusSessionMinutes: number;
+  onFocusSessionChange: (minutes: number) => void;
+  breakSessionMinutes: number;
+  onBreakSessionChange: (minutes: number) => void;
+  // New props for status
+  status: string;
+  onStatusChange: (status: string) => void;
+  isStatusShared: boolean;
+  onIsStatusSharedChange: (isShared: boolean) => void;
 };
 
 const PHASE_LABEL = {
@@ -30,26 +42,12 @@ const PHASE_LABEL = {
   break: "Breathe",
 } as const;
 
-export function PomodoroPanel({
-  mode,
-  phase,
-  remainingMs,
-  focusDurationMs,
-  breakDurationMs,
-  isRunning,
-  onToggleMode,
-  onStartStop,
-  onReset,
-  onSkipPhase,
-  sharedActive = false,
-  companionCount = 1,
-  sharedParticipants = [],
-}: PomodoroPanelProps) {
+export function PomodoroPanel(props: PomodoroPanelProps) {
   const [isHovered, setIsHovered] = useState(false);
 
   const totalDurationMs =
-    phase === "focus" ? focusDurationMs : breakDurationMs;
-  const clampedRemaining = Math.max(0, Math.min(remainingMs, totalDurationMs));
+    props.phase === "focus" ? props.focusDurationMs : props.breakDurationMs;
+  const clampedRemaining = Math.max(0, Math.min(props.remainingMs, totalDurationMs));
 
   const formattedTime = useMemo(() => {
     const totalSeconds = Math.ceil(clampedRemaining / 1000);
@@ -61,17 +59,25 @@ export function PomodoroPanel({
   }, [clampedRemaining]);
 
   const hint = useMemo(() => {
-    if (mode !== "shared") {
-      return isRunning ? "Focusing." : "Ready to focus?";
+    if (props.mode !== "shared") {
+      return props.isRunning ? "Focusing." : "Ready to focus?";
     }
-    if (companionCount > 1) {
-      const others = companionCount - 1;
+    if (props.companionCount > 1) {
+      const others = props.companionCount - 1;
       return others === 1
         ? "With one companion."
         : `With ${others} companions.`;
     }
-    return isRunning ? "Focusing together." : "Ready to join?";
-  }, [mode, isRunning, companionCount]);
+    return props.isRunning ? "Focusing together." : "Ready to join?";
+  }, [props.mode, props.isRunning, props.companionCount]);
+
+  const handleTimeChange = (amount: number) => {
+    if (props.phase === 'focus') {
+      props.onFocusSessionChange(Math.max(5, props.focusSessionMinutes + amount));
+    } else {
+      props.onBreakSessionChange(Math.max(1, props.breakSessionMinutes + amount));
+    }
+  };
 
   return (
     <motion.div
@@ -85,7 +91,7 @@ export function PomodoroPanel({
             {formattedTime}
           </span>
           <span className="text-xs uppercase tracking-[0.2em] text-slate-100/70 text-shadow-soft">
-            {PHASE_LABEL[phase]}
+            {PHASE_LABEL[props.phase]}
           </span>
         </div>
       </div>
@@ -97,62 +103,43 @@ export function PomodoroPanel({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="absolute top-full mt-4 w-[280px] rounded-glass border border-white/10 bg-slate-900/50 p-4 shadow-glass-lg backdrop-blur-lg"
+            className="absolute top-full mt-4 w-[300px] rounded-glass border border-white/10 bg-slate-900/50 p-4 shadow-glass-lg backdrop-blur-lg"
           >
-            <header className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs tracking-[0.18em] text-slate-200/80">
-                {mode === "solo" ? (
-                  <>
-                    <User className="h-3 w-3" />
-                    <span>Solo Focus</span>
-                  </>
-                ) : (
-                  <>
-                    <Users className="h-3 w-3 text-twilight-ember" />
-                    <span className="text-twilight-ember">
-                      Shared Focus
-                    </span>
-                  </>
-                )}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-xs tracking-[0.18em] text-slate-200/80">
+                  {props.mode === "solo" ? (
+                    <>
+                      <User className="h-3 w-3" />
+                      <span>Solo Focus</span>
+                    </>
+                  ) : (
+                    <>
+                      <Users className="h-3 w-3 text-twilight-ember" />
+                      <span className="text-twilight-ember">Shared Focus</span>
+                    </>
+                  )}
+                </div>
               </div>
-              <button
-                type="button"
-                onClick={onToggleMode}
-                className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.65rem] font-medium text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-                aria-label={`Switch timer mode (currently ${mode})`}
-              >
-                {mode === "shared" ? "Go Solo" : "Join Shared"}
-              </button>
-            </header>
-
-            {sharedActive && companionCount > 1 && (
-              <div className="mt-3 flex items-center gap-2">
-                <span className="flex -space-x-2">
-                  {sharedParticipants.slice(0, 4).map((p) => (
-                    <div
-                      key={p.id}
-                      className="h-5 w-5 rounded-full border-2 border-slate-800"
-                      style={{ backgroundColor: p.color }}
-                      title="Participant"
-                    />
-                  ))}
-                </span>
-                {sharedParticipants.length > 4 && (
-                  <span className="text-xs text-slate-300/70">
-                    +{sharedParticipants.length - 4} more
-                  </span>
-                )}
+              <div className="flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => props.onToggleMode()}
+                  className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.65rem] font-medium text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                >
+                  {props.mode === "shared" ? "Go Solo" : "Join Shared"}
+                </button>
               </div>
-            )}
+            </div>
 
             <div className="mt-4 flex items-center justify-between gap-2 rounded-full bg-slate-900/50 p-1">
               <button
                 type="button"
-                onClick={onStartStop}
+                onClick={() => props.onStartStop()}
                 className="flex-1 rounded-full bg-twilight-ember/80 px-4 py-2 text-sm font-semibold text-twilight shadow-glass-sm transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-twilight-ember/60"
-                aria-pressed={isRunning}
+                aria-pressed={props.isRunning}
               >
-                {isRunning ? (
+                {props.isRunning ? (
                   <Pause className="mx-auto h-5 w-5" />
                 ) : (
                   <Play className="mx-auto h-5 w-5" />
@@ -160,7 +147,7 @@ export function PomodoroPanel({
               </button>
               <button
                 type="button"
-                onClick={onSkipPhase}
+                onClick={() => props.onSkipPhase()}
                 className="rounded-full p-3 text-slate-300/70 transition duration-200 hover:bg-white/5 hover:text-slate-100 focus-visible:outline-none"
                 aria-label="Skip to next phase"
               >
@@ -168,16 +155,46 @@ export function PomodoroPanel({
               </button>
               <button
                 type="button"
-                onClick={onReset}
+                onClick={() => props.onReset()}
                 className="rounded-full p-3 text-slate-300/70 transition duration-200 hover:bg-white/5 hover:text-slate-100 focus-visible:outline-none"
                 aria-label="Reset timer"
               >
                 <RotateCcw className="h-4 w-4" />
               </button>
             </div>
-            <p className="mt-3 px-2 text-center text-xs leading-relaxed text-slate-100/70">
-              {hint}
-            </p>
+
+            <div className="mt-4 space-y-3">
+              <div>
+                <label className="flex items-center justify-between text-xs uppercase tracking-[0.2em] text-slate-300/70">
+                  <span>{props.phase} Time</span>
+                  <span className="flex items-center gap-1">
+                    <button onClick={() => handleTimeChange(-5)} className="rounded-full p-1 hover:bg-white/10"><Minus className="h-3 w-3" /></button>
+                    <span>{props.phase === 'focus' ? props.focusSessionMinutes : props.breakSessionMinutes}m</span>
+                    <button onClick={() => handleTimeChange(5)} className="rounded-full p-1 hover:bg-white/10"><Plus className="h-3 w-3" /></button>
+                  </span>
+                </label>
+              </div>
+              <div>
+                <input
+                  type="text"
+                  value={props.status}
+                  onChange={(e) => props.onStatusChange(e.target.value)}
+                  placeholder="What are you focusing on?"
+                  className="w-full rounded-md border border-white/10 bg-slate-900/50 px-3 py-2 text-sm text-white placeholder-slate-400/60 focus:border-white/20 focus:outline-none focus:ring-1 focus:ring-white/20"
+                />
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="share-status-checkbox"
+                  checked={props.isStatusShared}
+                  onChange={(e) => props.onIsStatusSharedChange(e.target.checked)}
+                  className="h-4 w-4 rounded border-white/20 bg-slate-800 text-twilight-ember focus:ring-twilight-ember/50"
+                />
+                <label htmlFor="share-status-checkbox" className="text-xs text-slate-300/80">Share with others</label>
+              </div>
+            </div>
+
           </motion.div>
         )}
       </AnimatePresence>

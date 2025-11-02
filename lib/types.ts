@@ -5,6 +5,7 @@ export type AvatarPresence = {
   x: number;
   y: number;
   updatedAt: number;
+  status?: string;
 };
 
 export type TimerMode = "solo" | "shared";
@@ -27,4 +28,5 @@ export type RenderAvatar = {
   y: number;
   isSelf: boolean;
   isHovered: boolean;
+  status?: string;
 };

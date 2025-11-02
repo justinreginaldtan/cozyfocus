@@ -10,6 +10,7 @@ type AvatarSpriteProps = {
   name: string;
   isSelf: boolean;
   isHovered: boolean;
+  status?: string;
   onHoverChange?: (hovered: boolean) => void;
   spiritState?: CompanionState;
 };
@@ -46,7 +47,7 @@ type StateConfig = {
 };
 
 const CANVAS_SIZE = 32;
-const DISPLAY_SCALE = 4;
+const DISPLAY_SCALE = 3.2;
 const DISPLAY_SIZE = CANVAS_SIZE * DISPLAY_SCALE;
 
 const SHADOW_COLOR = "rgba(120, 78, 36, 0.2)";
@@ -528,11 +529,12 @@ function AvatarSpriteComponent({
       <span className="focus-spirit__shadow" aria-hidden="true" />
       <div
         id={labelId}
-        className={`pointer-events-none absolute bottom-[70px] left-1/2 -translate-x-1/2 rounded-full bg-[rgba(15,23,42,0.9)] px-2.5 py-1 text-[0.72rem] font-medium text-slate-50 shadow-[0_12px_24px_rgba(10,18,35,0.45)] transition duration-200 ${
-          isHovered ? "translate-y-0 opacity-100" : "translate-y-2 opacity-0"
+        className={`pointer-events-none absolute top-full mt-2 left-1/2 w-max max-w-[200px] -translate-x-1/2 rounded-full bg-[rgba(15,23,42,0.9)] px-2.5 py-1 text-center text-[0.72rem] font-medium text-slate-50 shadow-[0_12px_24px_rgba(10,18,35,0.45)] transition duration-200 ${
+          isHovered ? "translate-y-0 opacity-100" : "-translate-y-2 opacity-0"
         }`}
       >
-        {name}
+        <div className="font-semibold">{name}</div>
+        {status && <div className="text-xs text-slate-300/80">{status}</div>}
       </div>
       <style jsx>{`
         .focus-spirit__motion {
@@ -565,7 +567,7 @@ function AvatarSpriteComponent({
 
         .focus-spirit__shadow {
           display: block;
-          width: 42px;
+          width: 34px;
           height: 3px;
           margin: 6px auto 0;
           border-radius: 9999px;
