@@ -1,40 +1,33 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 
+// Legacy types kept for backwards compatibility
 export type ThemeVariant = "twilight" | "dawn" | "night";
 export type SessionPreset = 15 | 25 | 50;
 
 type UIState = {
-  theme: ThemeVariant;
   ambientVolume: number;
-  focusSessionMinutes: SessionPreset;
-  reducedMotion: boolean;
-  highContrast: boolean;
+  focusSessionMinutes: number;
+  breakSessionMinutes: number;
   avatarColor: string;
   ambientPlaying: boolean;
-  setTheme: (theme: ThemeVariant) => void;
   setAmbientVolume: (volume: number) => void;
-  setFocusSessionMinutes: (minutes: SessionPreset) => void;
-  setReducedMotion: (enabled: boolean) => void;
-  setHighContrast: (enabled: boolean) => void;
+  setFocusSessionMinutes: (minutes: number) => void;
+  setBreakSessionMinutes: (minutes: number) => void;
   setAvatarColor: (hex: string) => void;
   setAmbientPlaying: (playing: boolean) => void;
 };
 
 const DEFAULTS: Pick<
   UIState,
-  | "theme"
   | "ambientVolume"
   | "focusSessionMinutes"
-  | "reducedMotion"
-  | "highContrast"
+  | "breakSessionMinutes"
   | "avatarColor"
 > = {
-  theme: "twilight",
   ambientVolume: 0.65,
   focusSessionMinutes: 25,
-  reducedMotion: false,
-  highContrast: false,
+  breakSessionMinutes: 5,
   avatarColor: "#F8DCA4",
 };
 
@@ -42,11 +35,9 @@ const DEFAULTS: Pick<
 const serverSnapshot: UIState = {
   ...DEFAULTS,
   ambientPlaying: false,
-  setTheme: () => {},
   setAmbientVolume: () => {},
   setFocusSessionMinutes: () => {},
-  setReducedMotion: () => {},
-  setHighContrast: () => {},
+  setBreakSessionMinutes: () => {},
   setAvatarColor: () => {},
   setAmbientPlaying: () => {},
 };
@@ -56,21 +47,20 @@ export const useUIStore = create<UIState>()(
     (set) => ({
       ...DEFAULTS,
       ambientPlaying: false,
-      setTheme: (theme) => set({ theme }),
       setAmbientVolume: (ambientVolume) =>
         set({
           ambientVolume: Math.max(0, Math.min(1, ambientVolume)),
         }),
       setFocusSessionMinutes: (focusSessionMinutes) =>
         set({ focusSessionMinutes }),
-      setReducedMotion: (reducedMotion) => set({ reducedMotion }),
-      setHighContrast: (highContrast) => set({ highContrast }),
+      setBreakSessionMinutes: (breakSessionMinutes) =>
+        set({ breakSessionMinutes }),
       setAvatarColor: (avatarColor) => set({ avatarColor }),
       setAmbientPlaying: (ambientPlaying) => set({ ambientPlaying }),
     }),
     {
       name: "cozyfocus.ui",
-      version: 1,
+      version: 2, // Increment version for schema change
       storage: createJSONStorage(() => localStorage),
     }
   )

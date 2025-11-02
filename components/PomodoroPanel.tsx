@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 
 type PomodoroPanelProps = {
   mode: "solo" | "shared";
@@ -14,9 +14,6 @@ type PomodoroPanelProps = {
   sharedActive?: boolean;
   companionCount?: number;
   sharedParticipants?: { id: string; color: string }[];
-  collapsible?: boolean;
-  collapsed?: boolean;
-  onToggleCollapse?: () => void;
 };
 
 const PHASE_LABEL = {
@@ -49,9 +46,6 @@ export function PomodoroPanel({
   sharedActive = false,
   companionCount = 1,
   sharedParticipants = [],
-  collapsible = false,
-  collapsed,
-  onToggleCollapse,
 }: PomodoroPanelProps) {
   // Determine allotted duration for the current phase to drive progress visuals.
   const totalDurationMs =
@@ -88,53 +82,10 @@ export function PomodoroPanel({
     return HINT_COPY.shared[isRunning ? "running" : "idle"];
   }, [mode, isRunning, companionCount]);
 
-  const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState(false);
-  const isControlled = typeof collapsed === "boolean";
-  const resolvedCollapsed = isControlled ? collapsed : uncontrolledCollapsed;
-
-  const toggleCollapsed = () => {
-    if (!collapsible) return;
-    if (onToggleCollapse) onToggleCollapse();
-    if (!isControlled) setUncontrolledCollapsed((prev) => !prev);
-  };
-
-  const collapsedSummary = (
-    <div className="flex items-center justify-between gap-3">
-      <div className="flex flex-col">
-        <span className="text-[0.65rem] uppercase tracking-[0.3em] text-slate-200/70">
-          {PHASE_LABEL[phase]}
-        </span>
-        <span className="text-xl font-semibold tracking-[0.18em] text-parchment">
-          {formattedTime}
-        </span>
-      </div>
-      <div className="flex items-center gap-2">
-        <button
-          type="button"
-          onClick={onStartStop}
-          className="rounded-full bg-twilight-ember/80 px-3 py-2 text-[0.7rem] font-semibold uppercase tracking-[0.18em] text-twilight transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-twilight-ember/60"
-          aria-pressed={isRunning}
-        >
-          {isRunning ? "Pause" : "Start"}
-        </button>
-        {collapsible && (
-          <button
-            type="button"
-            onClick={toggleCollapsed}
-            className="rounded-full border border-white/15 bg-white/5 px-3 py-2 text-[0.65rem] font-medium uppercase tracking-[0.2em] text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-            aria-expanded={!resolvedCollapsed}
-          >
-            Expand
-          </button>
-        )}
-      </div>
-    </div>
-  );
-
   return (
     <section className="relative z-10 w-full max-w-xs rounded-glass border border-white/10 bg-[rgba(15,23,42,0.78)] p-6 shadow-glass-lg backdrop-blur-lounge transition-all duration-300">
       <div className="pointer-events-none absolute inset-px rounded-glass bg-gradient-to-br from-white/4 via-white/0 to-white/5" />
-      {sharedActive && !resolvedCollapsed && (
+      {sharedActive && (
         <div className="relative z-20 mb-4 flex items-center justify-between rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[0.65rem] uppercase tracking-[0.32em] text-slate-100/80 shadow-[0_12px_24px_rgba(10,18,35,0.45)] transition">
           <span>Studying together</span>
           <span className="flex items-center gap-1 text-[0.62rem] tracking-[0.2em]">
@@ -165,80 +116,62 @@ export function PomodoroPanel({
         <span className="whitespace-nowrap tracking-[0.18em]">
           {mode === "solo" ? "Focusing alone 🌙" : "Studying together 💛"}
         </span>
-        <div className="flex items-center gap-2">
-          {collapsible && (
-            <button
-              type="button"
-              onClick={toggleCollapsed}
-              className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.63rem] font-medium uppercase tracking-[0.2em] text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-              aria-expanded={!resolvedCollapsed}
-            >
-              {resolvedCollapsed ? "Expand" : "Collapse"}
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={onToggleMode}
-            className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.65rem] font-medium text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-            aria-label={`Switch timer mode (currently ${mode})`}
-          >
-            {mode === "shared" ? "Focus solo?" : "Join others?"}
-          </button>
-        </div>
+        <button
+          type="button"
+          onClick={onToggleMode}
+          className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.65rem] font-medium text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          aria-label={`Switch timer mode (currently ${mode})`}
+        >
+          {mode === "shared" ? "Focus solo?" : "Join others?"}
+        </button>
       </header>
 
-      {resolvedCollapsed ? (
-        collapsedSummary
-      ) : (
-        <>
-          <div
-            className={`relative z-10 mx-auto grid h-[190px] w-[190px] place-items-center rounded-full border border-white/5 bg-gradient-to-br ${panelTone} p-4 shadow-inner`}
-            style={{
-              background: `conic-gradient(#fcd34d ${completion * 360}deg, rgba(248, 250, 252, 0.18) ${
-                completion * 360
-              }deg 360deg)`,
-            }}
-          >
-            <div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-white/10 bg-[rgba(15,23,42,0.92)] shadow-[inset_0_0_26px_rgba(14,116,144,0.12)] transition-colors duration-500">
-              <span className="text-xs uppercase tracking-[0.3em] text-slate-100/70">
-                {PHASE_LABEL[phase]}
-              </span>
-              <span className="text-[2.5rem] font-semibold tracking-[0.18em] text-parchment">
-                {formattedTime}
-              </span>
-            </div>
-          </div>
+      <div
+        className={`relative z-10 mx-auto grid h-[190px] w-[190px] place-items-center rounded-full border border-white/5 bg-gradient-to-br ${panelTone} p-4 shadow-inner`}
+        style={{
+          background: `conic-gradient(#fcd34d ${completion * 360}deg, rgba(248, 250, 252, 0.18) ${
+            completion * 360
+          }deg 360deg)`,
+        }}
+      >
+        <div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-white/10 bg-[rgba(15,23,42,0.92)] shadow-[inset_0_0_26px_rgba(14,116,144,0.12)] transition-colors duration-500">
+          <span className="text-xs uppercase tracking-[0.3em] text-slate-100/70">
+            {PHASE_LABEL[phase]}
+          </span>
+          <span className="text-[2.5rem] font-semibold tracking-[0.18em] text-parchment">
+            {formattedTime}
+          </span>
+        </div>
+      </div>
 
-          <div className="relative z-10 mt-6 flex items-center justify-between gap-3">
-            <button
-              type="button"
-              onClick={onStartStop}
-              className="flex-1 rounded-full bg-twilight-ember/80 px-4 py-2 text-sm font-semibold text-twilight shadow-glass-sm transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-twilight-ember/60"
-              aria-pressed={isRunning}
-            >
-              {isRunning ? "Pause" : "Start"}
-            </button>
-            <button
-              type="button"
-              onClick={onSkipPhase}
-              className="px-3 py-2 text-sm font-medium text-slate-300/70 transition duration-200 hover:text-slate-100 focus-visible:outline-none focus-visible:underline"
-            >
-              Skip
-            </button>
-            <button
-              type="button"
-              onClick={onReset}
-              className="px-3 py-2 text-sm font-medium text-slate-300/70 transition duration-200 hover:text-slate-100 focus-visible:outline-none focus-visible:underline"
-            >
-              Reset
-            </button>
-          </div>
+      <div className="relative z-10 mt-6 flex items-center justify-between gap-3">
+        <button
+          type="button"
+          onClick={onStartStop}
+          className="flex-1 rounded-full bg-twilight-ember/80 px-4 py-2 text-sm font-semibold text-twilight shadow-glass-sm transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-twilight-ember/60"
+          aria-pressed={isRunning}
+        >
+          {isRunning ? "Pause" : "Start"}
+        </button>
+        <button
+          type="button"
+          onClick={onSkipPhase}
+          className="px-3 py-2 text-sm font-medium text-slate-300/70 transition duration-200 hover:text-slate-100 focus-visible:outline-none focus-visible:underline"
+        >
+          Skip
+        </button>
+        <button
+          type="button"
+          onClick={onReset}
+          className="px-3 py-2 text-sm font-medium text-slate-300/70 transition duration-200 hover:text-slate-100 focus-visible:outline-none focus-visible:underline"
+        >
+          Reset
+        </button>
+      </div>
 
-          <p className="relative z-10 mt-4 text-xs leading-relaxed text-slate-100/70">
-            {hint}
-          </p>
-        </>
-      )}
+      <p className="relative z-10 mt-4 text-xs leading-relaxed text-slate-100/70">
+        {hint}
+      </p>
     </section>
   );
 }

@@ -35,8 +35,6 @@ type RemoteAvatarState = {
 };
 
 const DEFAULT_FOCUS_DURATION_MS = 25 * 60 * 1000;
-const BREAK_DURATION_MS = 5 * 60 * 1000;
-
 const MOVE_SPEED = 0.65; // normalized units per second
 const REMOTE_SMOOTHING = 0.18;
 const PRESENCE_BROADCAST_INTERVAL_MS = 120;
@@ -44,6 +42,7 @@ const TIMER_BROADCAST_INTERVAL_MS = 1000;
 
 const clampNormalized = (value: number) => Math.min(1, Math.max(0, value));
 const IDENTITY_STORAGE_KEY = "cozyfocus.identity";
+const INFO_PANEL_DISMISSED_KEY = "cozyfocus.infoPanelDismissed";
 
 const createInitialTimerState = (
   mode: TimerState["mode"] = "solo",
@@ -85,8 +84,7 @@ export default function HomePage() {
   const [avatars, setAvatars] = useState<RenderAvatar[]>([]);
   const [hoveredAvatarId, setHoveredAvatarId] = useState<string | null>(null);
   const [onlineCount, setOnlineCount] = useState(1);
-  const [infoCollapsed, setInfoCollapsed] = useState(false);
-  const [timerCollapsed, setTimerCollapsed] = useState(false);
+  const [showInfoPanel, setShowInfoPanel] = useState(true);
   const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
   const [isAvatarDrawerOpen, setIsAvatarDrawerOpen] = useState(false);
   const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
@@ -101,33 +99,26 @@ export default function HomePage() {
   const {
     avatarColor,
     setAvatarColor,
-    theme,
-    setTheme,
     ambientVolume,
     setAmbientVolume,
     focusSessionMinutes,
     setFocusSessionMinutes,
-    reducedMotion,
-    setReducedMotion,
-    highContrast,
-    setHighContrast,
+    breakSessionMinutes,
+    setBreakSessionMinutes,
   } = useUIStore(
     useShallow((state) => ({
       avatarColor: state.avatarColor,
       setAvatarColor: state.setAvatarColor,
-      theme: state.theme,
-      setTheme: state.setTheme,
       ambientVolume: state.ambientVolume,
       setAmbientVolume: state.setAmbientVolume,
       focusSessionMinutes: state.focusSessionMinutes,
       setFocusSessionMinutes: state.setFocusSessionMinutes,
-      reducedMotion: state.reducedMotion,
-      setReducedMotion: state.setReducedMotion,
-      highContrast: state.highContrast,
-      setHighContrast: state.setHighContrast,
+      breakSessionMinutes: state.breakSessionMinutes,
+      setBreakSessionMinutes: state.setBreakSessionMinutes,
     }))
   );
   const focusDurationMs = focusSessionMinutes * 60 * 1000;
+  const breakDurationMs = breakSessionMinutes * 60 * 1000;
 
   const [timerState, setTimerState] = useState<TimerState>(() =>
     createInitialTimerState("solo", focusDurationMs)
@@ -209,14 +200,6 @@ export default function HomePage() {
   useEffect(() => {
     timerRef.current = timerState;
   }, [timerState]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") return;
-    const body = document.body;
-    body.dataset.theme = theme;
-    body.dataset.contrast = highContrast ? "high" : "normal";
-    body.dataset.motion = reducedMotion ? "reduced" : "full";
-  }, [theme, highContrast, reducedMotion]);
 
   useEffect(() => {
     setTimerState((prev) => {
@@ -333,14 +316,14 @@ export default function HomePage() {
     updateTimerState((prev) => {
       const nextPhase = prev.phase === "focus" ? "break" : "focus";
       const duration =
-        nextPhase === "focus" ? focusDurationMs : BREAK_DURATION_MS;
+        nextPhase === "focus" ? focusDurationMs : breakDurationMs;
       return {
         ...prev,
         phase: nextPhase,
         remainingMs: duration,
       };
     });
-  }, [focusDurationMs, updateTimerState]);
+  }, [breakDurationMs, focusDurationMs, updateTimerState]);
 
   const setTargetFromPoint = useCallback((clientX: number, clientY: number) => {
     const container = containerRef.current;
@@ -608,7 +591,7 @@ export default function HomePage() {
           if (remaining === 0) {
             phase = timer.phase === "focus" ? "break" : "focus";
             remaining =
-              phase === "focus" ? focusDurationMs : BREAK_DURATION_MS;
+              phase === "focus" ? focusDurationMs : breakDurationMs;
           }
           const updatedTimer: TimerState = {
             ...timer,
@@ -643,7 +626,7 @@ export default function HomePage() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [identity, setTimerState, showWelcome]);
+  }, [breakDurationMs, focusDurationMs, identity, setTimerState, showWelcome]);
 
   const onlineLabel = `${onlineCount} online`;
   const sharedActive = timerState.mode === "shared" && !showWelcome;
@@ -741,10 +724,8 @@ export default function HomePage() {
             <AmbientPlayer
               ref={ambientPlayerRef}
               src="/lofi.mp3"
+              songName="Lofi Study Beats"
               className="mt-5"
-              collapsible
-              collapsed={infoCollapsed}
-              onToggleCollapse={() => setInfoCollapsed((prev) => !prev)}
             />
           </div>
         </div>
@@ -785,7 +766,7 @@ export default function HomePage() {
             phase={timerState.phase}
             remainingMs={timerState.remainingMs}
             focusDurationMs={focusDurationMs}
-            breakDurationMs={BREAK_DURATION_MS}
+            breakDurationMs={breakDurationMs}
             isRunning={timerState.isRunning}
             onToggleMode={handleToggleMode}
             onStartStop={handleStartStop}
@@ -794,9 +775,6 @@ export default function HomePage() {
             sharedActive={sharedActive}
             companionCount={onlineCount}
             sharedParticipants={sharedParticipants.map(({ id, color }) => ({ id, color }))}
-            collapsible
-            collapsed={timerCollapsed}
-            onToggleCollapse={() => setTimerCollapsed((prev) => !prev)}
           />
         </div>
       </div>
@@ -815,16 +793,12 @@ export default function HomePage() {
       <SettingsDrawer
         open={isSettingsDrawerOpen}
         onClose={() => setIsSettingsDrawerOpen(false)}
-        theme={theme}
-        onThemeChange={setTheme}
         ambientVolume={ambientVolume}
         onAmbientVolumeChange={setAmbientVolume}
         focusSessionMinutes={focusSessionMinutes}
         onFocusSessionChange={setFocusSessionMinutes}
-        reducedMotion={reducedMotion}
-        onReducedMotionChange={setReducedMotion}
-        highContrast={highContrast}
-        onHighContrastChange={setHighContrast}
+        breakSessionMinutes={breakSessionMinutes}
+        onBreakSessionChange={setBreakSessionMinutes}
       />
       {identity && (
         <WelcomeModal

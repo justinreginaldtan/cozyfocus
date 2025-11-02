@@ -17,10 +17,8 @@ export type AmbientPlayerHandle = {
 
 type AmbientPlayerProps = {
   src: string;
+  songName?: string;
   className?: string;
-  collapsible?: boolean;
-  collapsed?: boolean;
-  onToggleCollapse?: () => void;
 };
 
 const STORAGE_KEY = "cozyfocus.ambient";
@@ -65,7 +63,7 @@ const persistState = (next: PersistedAudioState) => {
 
 export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>(
   function AmbientPlayer(
-    { src, className, collapsible = false, collapsed, onToggleCollapse },
+    { src, songName = "Lofi Study Session", className },
     ref
   ) {
     const persisted = useMemo(readPersistedState, []);
@@ -77,20 +75,8 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
     const [isPlaying, setIsPlaying] = useState(false);
     const [resumeOnGesture, setResumeOnGesture] = useState(persisted.resumeOnGesture);
     const [isMuted, setIsMuted] = useState(persisted.muted);
-    const [uncontrolledCollapsed, setUncontrolledCollapsed] = useState(false);
-
-    const isControlled = typeof collapsed === "boolean";
-    const resolvedCollapsed = isControlled ? collapsed : uncontrolledCollapsed;
-
-    const toggleCollapse = () => {
-      if (!collapsible) return;
-      if (onToggleCollapse) {
-        onToggleCollapse();
-      }
-      if (!isControlled) {
-        setUncontrolledCollapsed((prev) => !prev);
-      }
-    };
+    const [currentTime, setCurrentTime] = useState(0);
+    const [duration, setDuration] = useState(0);
 
     useEffect(() => {
       resumeOnGestureRef.current = resumeOnGesture;
@@ -170,6 +156,20 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
       if (!audio) return;
       audio.loop = true;
       audio.preload = "auto";
+
+      const handleTimeUpdate = () => setCurrentTime(audio.currentTime);
+      const handleLoadedMetadata = () => setDuration(audio.duration);
+      const handleDurationChange = () => setDuration(audio.duration);
+
+      audio.addEventListener("timeupdate", handleTimeUpdate);
+      audio.addEventListener("loadedmetadata", handleLoadedMetadata);
+      audio.addEventListener("durationchange", handleDurationChange);
+
+      return () => {
+        audio.removeEventListener("timeupdate", handleTimeUpdate);
+        audio.removeEventListener("loadedmetadata", handleLoadedMetadata);
+        audio.removeEventListener("durationchange", handleDurationChange);
+      };
     }, []);
 
     useEffect(() => {
@@ -194,60 +194,58 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
       applyMute(!isMuted);
     };
 
-    const containerClassName = [
-      "relative z-10 w-full rounded-glass border border-white/10 bg-white/5 text-xs text-slate-100/70 backdrop-blur-lounge shadow-glass-sm transition-all duration-300",
-      resolvedCollapsed ? "px-4 py-3" : "p-4",
-      className ?? "",
-    ]
-      .join(" ")
-      .trim();
+    const formatTime = (seconds: number): string => {
+      if (!isFinite(seconds)) return "0:00";
+      const mins = Math.floor(seconds / 60);
+      const secs = Math.floor(seconds % 60);
+      return `${mins}:${secs.toString().padStart(2, "0")}`;
+    };
+
+    const progress = duration > 0 ? (currentTime / duration) * 100 : 0;
 
     return (
-      <section className={containerClassName}>
-        <header className="flex items-center justify-between text-[0.7rem] uppercase tracking-[0.28em] text-slate-100">
-          <span className="flex items-center gap-2">
-            Ambient Session
-            {collapsible && (
-              <button
-                type="button"
-                onClick={toggleCollapse}
-                className="rounded-full border border-white/10 px-2 py-1 text-[0.55rem] font-medium uppercase tracking-[0.18em] text-slate-100/80 transition hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
-                aria-expanded={!resolvedCollapsed}
-              >
-                {resolvedCollapsed ? "Expand" : "Collapse"}
-              </button>
-            )}
+      <section className={`relative z-10 flex items-center gap-3 rounded-full border border-white/10 bg-[rgba(15,23,42,0.88)] px-4 py-3 shadow-glass-lg backdrop-blur-lounge transition-all duration-300 ${className ?? ""}`}>
+        {/* Song info */}
+        <div className="flex flex-col gap-0.5">
+          <span className="text-[0.65rem] font-medium text-slate-100">
+            {songName}
           </span>
-          <span className="text-[0.6rem] text-slate-100/70">
-            {isPlaying ? "Playing" : "Paused"}
+          <span className="text-[0.58rem] text-slate-300/60">
+            {formatTime(currentTime)} / {formatTime(duration)}
           </span>
-        </header>
-        {!resolvedCollapsed && (
-          <>
-            <p className="mt-3 text-[0.7rem] leading-relaxed text-slate-200/70">
-              Leave the music running for steady, soft focus.
-            </p>
-            <div className="mt-4 flex items-center gap-2">
-              <button
-                type="button"
-                onClick={handleTogglePlay}
-                className="flex h-11 w-12 items-center justify-center rounded-full bg-gradient-to-r from-[#E8C877] via-[#f7dba8] to-[#E8C877] text-[#2b1c0e] shadow-[0_16px_32px_rgba(232,200,119,0.35)] transition duration-150 hover:scale-[1.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fdf1cc]"
-                aria-label={isPlaying ? "Pause ambient music" : "Play ambient music"}
-              >
-                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-              </button>
-              <button
-                type="button"
-                onClick={handleToggleMute}
-                className="flex h-11 w-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-100 transition duration-150 hover:border-white/25 hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-                aria-pressed={isMuted}
-                aria-label={isMuted ? "Unmute ambient music" : "Mute ambient music"}
-              >
-                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
-              </button>
-            </div>
-          </>
-        )}
+        </div>
+
+        {/* Progress bar */}
+        <div className="relative flex-1">
+          <div className="h-1 overflow-hidden rounded-full bg-white/10">
+            <div
+              className="h-full rounded-full bg-gradient-to-r from-[#E8C877] to-[#f7dba8] transition-all duration-100"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
+
+        {/* Controls */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleTogglePlay}
+            className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-r from-[#E8C877] via-[#f7dba8] to-[#E8C877] text-[#2b1c0e] shadow-[0_10px_20px_rgba(232,200,119,0.3)] transition duration-150 hover:scale-[1.08] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fdf1cc]"
+            aria-label={isPlaying ? "Pause ambient music" : "Play ambient music"}
+          >
+            {isPlaying ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={handleToggleMute}
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-100 transition duration-150 hover:border-white/25 hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            aria-pressed={isMuted}
+            aria-label={isMuted ? "Unmute ambient music" : "Mute ambient music"}
+          >
+            {isMuted ? <VolumeX className="h-3.5 w-3.5" /> : <Volume2 className="h-3.5 w-3.5" />}
+          </button>
+        </div>
+
         <audio ref={audioRef} src={src} />
       </section>
     );
