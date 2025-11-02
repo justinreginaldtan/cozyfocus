@@ -24,6 +24,7 @@ import {
   pickAvatarColor,
 } from "@/lib/utils";
 import { useUIStore } from "@/lib/state/uiStore";
+import styles from './Home.module.css';
 
 type RemoteAvatarState = {
   color: string;
@@ -83,13 +84,12 @@ export default function HomePage() {
 
   const [avatars, setAvatars] = useState<RenderAvatar[]>([]);
   const [hoveredAvatarId, setHoveredAvatarId] = useState<string | null>(null);
-  const [onlineCount, setOnlineCount] = useState(1);
+  const [onlineCount, setOnlineCount] = useState(0);
   const [isCornerstoneMenuOpen, setIsCornerstoneMenuOpen] = useState(false);
   const [isAvatarDrawerOpen, setIsAvatarDrawerOpen] = useState(false);
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const [status, setStatus] = useState("");
   const [isStatusShared, setIsStatusShared] = useState(false);
-  const [zenMode, setZenMode] = useState(false);
   const parallaxTargetRef = useRef({ x: 0, y: 0 });
   const parallaxFrameRef = useRef<number | null>(null);
   const [toastMessage, setToastMessage] = useState("");
@@ -223,17 +223,6 @@ export default function HomePage() {
   useEffect(() => {
     timerRef.current = timerState;
   }, [timerState]);
-
-  useEffect(() => {
-    if (!zenMode) return;
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setZenMode(false);
-      }
-    };
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [zenMode]);
 
   useEffect(() => {
     setTimerState((prev) => {
@@ -413,12 +402,14 @@ export default function HomePage() {
       const presenceState = channel.presenceState<AvatarPresence>();
       const nextRemotes = new Map<string, RemoteAvatarState>();
       const currentPresenceIds = new Set<string>();
-      let participantCount = 0;
+      let participantCount = 0; // Initialize to 0
 
       Object.values(presenceState).forEach((connections) => {
-        participantCount += connections.length;
         connections.forEach((presence) => {
-          if (!presence?.id || presence.id === resolvedGuestId) return;
+          if (!presence?.id) return; // Always skip invalid presence
+          if (presence.id === resolvedGuestId) return; // Skip local user
+          
+          participantCount++; // Only increment for remote users
           currentPresenceIds.add(presence.id);
           const normalizedX = clampNormalized(presence.x);
           const normalizedY = clampNormalized(presence.y);
@@ -473,7 +464,7 @@ export default function HomePage() {
 
       previousPresenceIdsRef.current = currentPresenceIds;
       remoteAvatarsRef.current = nextRemotes;
-      setOnlineCount(participantCount > 0 ? participantCount : 1);
+      setOnlineCount(participantCount);
     };
 
     channel.on("presence", { event: "sync" }, handlePresenceSync);
@@ -728,21 +719,13 @@ export default function HomePage() {
         <div className="pointer-events-none absolute right-[12%] top-[28%] h-72 w-72 rounded-full bg-[#38bdf81a] blur-3xl" />
         <div className="pointer-events-none absolute bottom-[18%] left-[30%] h-80 w-80 rounded-full bg-[#f973af1a] blur-3xl" />
 
-        <div className={`absolute inset-0 transition-opacity duration-500 ${zenMode ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}>
+        <div className={`absolute inset-0 transition-opacity duration-500 opacity-100`}>
 
         <motion.div 
           whileHover={{ scale: 1.1 }}
           className="absolute bottom-8 right-8 flex items-center gap-2"
           onPointerDown={(e) => e.stopPropagation()}
         >
-          <button
-            type="button"
-            onClick={() => setZenMode(true)}
-            className="group flex items-center gap-2 rounded-full border border-white/15 bg-white/5 p-2.5 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-            aria-label="Enter Zen Mode"
-          >
-            <Eye className="h-5 w-5 transition duration-150 group-hover:text-slate-300" />
-          </button>
           <button
             type="button"
             onClick={() => setIsCornerstoneMenuOpen(true)}
