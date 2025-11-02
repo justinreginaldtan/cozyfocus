@@ -58,12 +58,12 @@ export function WelcomeModal({ open, initialName, initialColor, onConfirm }: Wel
         className="relative z-10 w-[min(92vw,420px)] space-y-6 rounded-glass border border-white/15 bg-[rgba(15,23,42,0.95)] p-8 shadow-glass-lg backdrop-blur-lounge"
       >
         <header className="space-y-2 text-center">
-          <span className="text-xs uppercase tracking-[0.35em] text-slate-100/70">Welcome</span>
+          <span className="text-xs uppercase tracking-[0.35em] text-slate-100/70">Hey there 💛</span>
           <h2 className="text-2xl font-semibold tracking-[0.06em] text-parchment md:text-3xl">
-            Settle into the lounge
+            Pull up a chair
           </h2>
           <p className="text-sm leading-relaxed text-slate-100/80">
-            Choose the name and glow you want to bring into tonight’s study circle.
+            Pick a name and color that feels like you. No pressure, just cozy focus.
           </p>
         </header>
 
@@ -114,16 +114,16 @@ export function WelcomeModal({ open, initialName, initialColor, onConfirm }: Wel
         </fieldset>
 
         <div className="space-y-2 text-center text-[0.75rem] leading-relaxed text-slate-100/70">
-          <p>We keep this space kind. Choose a name you feel cozy carrying.</p>
+          <p>This is a safe, warm space. Choose a name that feels good to you—no one will judge.</p>
         </div>
 
         <div className="flex flex-col gap-3">
           <button
             type="submit"
             disabled={disabled}
-            className="w-full rounded-full bg-twilight-ember/90 px-6 py-3 text-sm font-semibold text-twilight shadow-[0_18px_36px_rgba(252,211,77,0.45)] transition hover:scale-[1.02] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-twilight-ember/60 disabled:cursor-not-allowed disabled:opacity-60"
+            className="w-full rounded-full bg-twilight-ember/90 px-6 py-3 text-sm font-semibold text-twilight shadow-[0_18px_36px_rgba(252,211,77,0.45)] transition hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-twilight-ember/60 disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Enter the lounge
+            I'm ready 💛
           </button>
           <span className="text-center text-[0.68rem] uppercase tracking-[0.32em] text-slate-200/60">
             Press Enter to continue

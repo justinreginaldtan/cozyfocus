@@ -7,6 +7,9 @@ import {
   useRef,
   useState,
 } from "react";
+import { Pause, Play, Volume2, VolumeX } from "lucide-react";
+
+import { useUIStore } from "@/lib/state/uiStore";
 
 export type AmbientPlayerHandle = {
   ensurePlayback: () => Promise<void>;
@@ -66,6 +69,8 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
     ref
   ) {
     const persisted = useMemo(readPersistedState, []);
+    const ambientVolume = useUIStore((state) => state.ambientVolume);
+    const setAmbientPlaying = useUIStore((state) => state.setAmbientPlaying);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const resumeOnGestureRef = useRef(persisted.resumeOnGesture);
 
@@ -97,9 +102,10 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
         const audio = audioRef.current;
         if (!audio) return;
         audio.muted = muted;
+        audio.volume = muted ? 0 : ambientVolume;
         setIsMuted(muted);
       },
-      [setIsMuted]
+      [ambientVolume]
     );
 
     useEffect(() => {
@@ -126,7 +132,8 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
       audio.pause();
       setResumeOnGesture(false);
       setIsPlaying(false);
-    }, []);
+      setAmbientPlaying(false);
+    }, [setAmbientPlaying]);
 
     useImperativeHandle(
       ref,
@@ -142,15 +149,21 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
     useEffect(() => {
       const audio = audioRef.current;
       if (!audio) return;
-      const handlePlay = () => setIsPlaying(true);
-      const handlePause = () => setIsPlaying(false);
+      const handlePlay = () => {
+        setIsPlaying(true);
+        setAmbientPlaying(true);
+      };
+      const handlePause = () => {
+        setIsPlaying(false);
+        setAmbientPlaying(false);
+      };
       audio.addEventListener("play", handlePlay);
       audio.addEventListener("pause", handlePause);
       return () => {
         audio.removeEventListener("play", handlePlay);
         audio.removeEventListener("pause", handlePause);
       };
-    }, []);
+    }, [setAmbientPlaying]);
 
     useEffect(() => {
       const audio = audioRef.current;
@@ -158,6 +171,16 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
       audio.loop = true;
       audio.preload = "auto";
     }, []);
+
+    useEffect(() => {
+      const audio = audioRef.current;
+      if (!audio) return;
+      if (!isMuted) {
+        audio.volume = ambientVolume;
+      } else {
+        audio.volume = 0;
+      }
+    }, [ambientVolume, isMuted]);
 
     const handleTogglePlay = () => {
       if (isPlaying) {
@@ -208,17 +231,19 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
               <button
                 type="button"
                 onClick={handleTogglePlay}
-                className="flex-1 rounded-full bg-white/10 px-3 py-2 text-[0.72rem] font-semibold uppercase tracking-[0.18em] text-slate-100 transition hover:bg-white/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                className="flex h-11 w-12 items-center justify-center rounded-full bg-gradient-to-r from-[#E8C877] via-[#f7dba8] to-[#E8C877] text-[#2b1c0e] shadow-[0_16px_32px_rgba(232,200,119,0.35)] transition duration-150 hover:scale-[1.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#fdf1cc]"
+                aria-label={isPlaying ? "Pause ambient music" : "Play ambient music"}
               >
-                {isPlaying ? "Pause" : "Play"}
+                {isPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
               </button>
               <button
                 type="button"
                 onClick={handleToggleMute}
-                className="rounded-full border border-white/15 bg-white/5 px-3 py-2 text-[0.68rem] font-medium uppercase tracking-[0.16em] text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                className="flex h-11 w-12 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-100 transition duration-150 hover:border-white/25 hover:bg-white/12 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
                 aria-pressed={isMuted}
+                aria-label={isMuted ? "Unmute ambient music" : "Mute ambient music"}
               >
-                {isMuted ? "Unmute" : "Mute"}
+                {isMuted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
               </button>
             </div>
           </>

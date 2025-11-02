@@ -161,8 +161,10 @@ export function PomodoroPanel({
         </div>
       )}
 
-      <header className="relative z-10 mb-5 flex items-center justify-between gap-3 text-xs uppercase tracking-[0.3em] text-slate-200/70">
-        <span className="whitespace-nowrap">Mode · {mode}</span>
+      <header className="relative z-10 mb-5 flex items-center justify-between gap-3 text-xs text-slate-200/70">
+        <span className="whitespace-nowrap tracking-[0.18em]">
+          {mode === "solo" ? "Focusing alone 🌙" : "Studying together 💛"}
+        </span>
         <div className="flex items-center gap-2">
           {collapsible && (
             <button
@@ -177,10 +179,10 @@ export function PomodoroPanel({
           <button
             type="button"
             onClick={onToggleMode}
-            className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.68rem] font-medium uppercase tracking-[0.2em] text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.65rem] font-medium text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             aria-label={`Switch timer mode (currently ${mode})`}
           >
-            {mode === "shared" ? "Switch to Solo" : "Join Shared Timer"}
+            {mode === "shared" ? "Focus solo?" : "Join others?"}
           </button>
         </div>
       </header>
@@ -207,7 +209,7 @@ export function PomodoroPanel({
             </div>
           </div>
 
-          <div className="relative z-10 mt-6 flex items-center justify-between gap-2">
+          <div className="relative z-10 mt-6 flex items-center justify-between gap-3">
             <button
               type="button"
               onClick={onStartStop}
@@ -219,14 +221,14 @@ export function PomodoroPanel({
             <button
               type="button"
               onClick={onSkipPhase}
-              className="rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-slate-200 transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+              className="px-3 py-2 text-sm font-medium text-slate-300/70 transition duration-200 hover:text-slate-100 focus-visible:outline-none focus-visible:underline"
             >
               Skip
             </button>
             <button
               type="button"
               onClick={onReset}
-              className="rounded-full border border-white/10 px-4 py-2 text-sm font-medium text-slate-200 transition duration-200 hover:-translate-y-0.5 hover:border-white/20 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/25"
+              className="px-3 py-2 text-sm font-medium text-slate-300/70 transition duration-200 hover:text-slate-100 focus-visible:outline-none focus-visible:underline"
             >
               Reset
             </button>

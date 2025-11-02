@@ -25,15 +25,21 @@ module.exports = {
         sans: ["var(--font-sans)", ...defaultTheme.fontFamily.sans],
       },
       borderRadius: {
-        glass: "16px",
+        glass: "18px",
       },
       boxShadow: {
-        "glass-lg": "0 32px 60px rgba(8, 15, 25, 0.55)",
-        "glass-md": "0 24px 48px rgba(8, 15, 25, 0.45)",
-        "glass-sm": "0 16px 32px rgba(8, 15, 25, 0.35)",
+        'glass-lg': 'var(--shadow-glass)',
+        'glass-md': '0 24px 48px rgba(6, 10, 24, 0.45)',
+        'glass-sm': '0 16px 28px rgba(6, 10, 24, 0.35)',
       },
       backdropBlur: {
-        lounge: "24px",
+        lounge: '24px',
+      },
+      transitionTimingFunction: {
+        glide: 'cubic-bezier(0.16, 1, 0.3, 1)',
+      },
+      transitionDuration: {
+        150: '150ms',
       },
       animation: {
         "aurora-drift": "auroraDrift 22s ease-in-out infinite alternate",

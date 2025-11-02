@@ -115,7 +115,7 @@ function buildPalette(): PaletteSet {
     scarfHighlight: "#F9E5C8",
     scarfShadow: "#A68FAF",
     scarfTail: "#A67E8C",
-    eye: "#352340",
+    eye: "#1F1528", // Deepened eye color
     eyeHighlight: "#E8DFF7",
     mouth: "#D6A3A0",
     blush: "#D9A9C9",
@@ -217,6 +217,8 @@ function drawFrame(
   const deepOutline = { ...deepOutlineRGB, a: 240 };
   const auraRGBA = rgbaHex(palette.aura, 0.4);
   const warmGlowRGB = hexToRgb("#F3C8A5");
+  // Honey-rose for lower-left shading warmth
+  const honeyRoseRGB = hexToRgb("#D4A574");
 
   for (let y = 0; y < CANVAS_SIZE; y++) {
     for (let x = 0; x < CANVAS_SIZE; x++) {
@@ -298,14 +300,16 @@ function drawFrame(
           if (normalizedY < -0.3) {
             targetRGB = mixColor(targetRGB, highlightRGB, 0.2);
           }
+          // Warm lower-left toward honey-rose
           if (dx <= -2 && normalizedY > 0.2) {
-            targetRGB = mixColor(targetRGB, warmGlowRGB, 0.25);
+            targetRGB = mixColor(targetRGB, honeyRoseRGB, 0.3);
           }
+          // Lighten lower-right edge
           if (dx >= 2 && normalizedY > 0.1) {
-            targetRGB = mixColor(targetRGB, lowerMidRGB, 0.22);
+            targetRGB = mixColor(targetRGB, highlightRGB, 0.28);
           }
           if (dx >= 3 && normalizedY > 0.25) {
-            targetRGB = mixColor(targetRGB, highlightRGB, 0.15);
+            targetRGB = mixColor(targetRGB, highlightRGB, 0.2);
           }
           if (normalizedY > 0.35) {
             targetRGB = mixColor(targetRGB, warmGlowRGB, 0.35);
@@ -324,12 +328,14 @@ function drawFrame(
 
   const glowRadius = 8;
   const innerGlowRGB = hexToRgb("#FFE8BF");
+  // Looser dither pattern for misty fade
   for (let oy = -glowRadius; oy <= glowRadius; oy++) {
     for (let ox = -glowRadius; ox <= glowRadius; ox++) {
       const distance = Math.sqrt(ox * ox + oy * oy);
       if (distance <= glowRadius) {
-        const dither = ((ox + oy) & 1) ? 0.7 : 1;
-        const alpha = 0.32 * (1 - distance / glowRadius) * dither;
+        // Looser dither: more variation for misty fade
+        const dither = ((ox + oy + (ox * 2)) & 3) ? 0.6 : 0.85;
+        const alpha = 0.28 * (1 - distance / glowRadius) * dither;
         blendPixel(data, centerX + ox, centerY + oy, innerGlowRGB, alpha);
       }
     }
@@ -339,6 +345,11 @@ function drawFrame(
   const auraPixel = { ...auraRGBA };
   const domeHighlight = mixColor(midRGB, highlightRGB, 0.4);
 
+  // Halo crescent: dim desaturated glow at top
+  const haloColor = hexToRgb("#FFF9E6"); // Desaturated warm glow
+  blendPixel(data, 15, 1, haloColor, 0.18); // Top center of crescent
+  blendPixel(data, 14, 2, haloColor, 0.22); // Left crescent point
+  
   // Top edge adjustments
   blendPixel(data, 15, 2, domeHighlight, 0.25);
 
@@ -348,21 +359,38 @@ function drawFrame(
   setPixel(data, 9, 15, midPixel);
   setPixel(data, 22, 15, midPixel);
 
-  // Bottom curve smoothing
+  // Bottom curve smoothing - keep row 20 warm and add pixel at (16,21)
   setPixel(data, 14, 21, midRGB);
+  setPixel(data, 16, 21, midRGB); // Extra pixel for smoothness
   setPixel(data, 17, 21, midRGB);
   blendPixel(data, 14, 20, midRGB, 0.3);
+  blendPixel(data, 15, 20, warmGlowRGB, 0.25); // Warm row 20
+  blendPixel(data, 16, 20, warmGlowRGB, 0.25);
   blendPixel(data, 17, 20, midRGB, 0.3);
+  
+  // Remove bottom shadow at (15,22) - lighten if it exists
+  if (15 >= 0 && 15 < CANVAS_SIZE && 22 >= 0 && 22 < CANVAS_SIZE) {
+    // Lighten the pixel to remove shadow effect
+    blendPixel(data, 15, 22, midRGB, 0.5);
+  }
 
   const mouthColor = hexToRgb(palette.mouth);
   const blushRGB = hexToRgb(palette.blush);
   const eyeColor = rgbaHex(palette.eye);
   const eyeHighlight = hexToRgb(palette.eyeHighlight);
 
-  blendPixel(data, centerX - 5, centerY + 3, blushRGB, 0.25);
-  blendPixel(data, centerX - 4, centerY + 3, blushRGB, 0.25);
-  blendPixel(data, centerX + 4, centerY + 3, blushRGB, 0.25);
-  blendPixel(data, centerX + 5, centerY + 3, blushRGB, 0.25);
+  // Enhance cheeks with gentle saturation - current positions and also at (10,12) and (21,12) if they exist
+  blendPixel(data, centerX - 5, centerY + 3, blushRGB, 0.35); // Enhanced saturation
+  blendPixel(data, centerX - 4, centerY + 3, blushRGB, 0.35);
+  blendPixel(data, centerX + 4, centerY + 3, blushRGB, 0.35);
+  blendPixel(data, centerX + 5, centerY + 3, blushRGB, 0.35);
+  // Additional cheek enhancement at absolute coordinates if they fall within canvas
+  if (10 >= 0 && 10 < CANVAS_SIZE && 12 >= 0 && 12 < CANVAS_SIZE) {
+    blendPixel(data, 10, 12, blushRGB, 0.28);
+  }
+  if (21 >= 0 && 21 < CANVAS_SIZE && 12 >= 0 && 12 < CANVAS_SIZE) {
+    blendPixel(data, 21, 12, blushRGB, 0.28);
+  }
 
   const eyeRow = 16 + offsetY;
   const eyeColumns = [13, 18];
@@ -378,13 +406,22 @@ function drawFrame(
     });
   }
 
+  // Mouth: raised one pixel upward for softer expression
+  const mouthRow = centerY + 4; // Raised from centerY + 5
+  const mouthCenterX = centerX;
+  blendPixel(data, mouthCenterX - 1, mouthRow, mouthColor, 0.6);
+  blendPixel(data, mouthCenterX, mouthRow, mouthColor, 0.7);
+  blendPixel(data, mouthCenterX + 1, mouthRow, mouthColor, 0.6);
+
   ctx.putImageData(imageData, 0, 0);
 }
 
 function AvatarSpriteComponent({
   x,
   y,
+  color,
   name,
+  isSelf,
   isHovered,
   onHoverChange,
   spiritState = "idle",

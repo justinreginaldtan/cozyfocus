@@ -2,11 +2,17 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
+import { useShallow } from "zustand/react/shallow";
+import { Settings2 } from "lucide-react";
 
 import { AmbientPlayer, AmbientPlayerHandle } from "@/components/AmbientPlayer";
+import { AvatarDrawer } from "@/components/AvatarDrawer";
 import { AvatarSprite } from "@/components/AvatarSprite";
+import { PlayerListModal } from "@/components/PlayerListModal";
 import { PomodoroPanel } from "@/components/PomodoroPanel";
+import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { SharedAura } from "@/components/SharedAura";
+import { Toast } from "@/components/Toast";
 import { WelcomeModal } from "@/components/WelcomeModal";
 import { supabase } from "@/lib/supabaseClient";
 import type { AvatarPresence, RenderAvatar, TimerState } from "@/lib/types";
@@ -17,6 +23,7 @@ import {
   lerp,
   pickAvatarColor,
 } from "@/lib/utils";
+import { useUIStore } from "@/lib/state/uiStore";
 
 type RemoteAvatarState = {
   color: string;
@@ -27,7 +34,7 @@ type RemoteAvatarState = {
   targetY: number;
 };
 
-const FOCUS_DURATION_MS = 25 * 60 * 1000;
+const DEFAULT_FOCUS_DURATION_MS = 25 * 60 * 1000;
 const BREAK_DURATION_MS = 5 * 60 * 1000;
 
 const MOVE_SPEED = 0.65; // normalized units per second
@@ -38,10 +45,13 @@ const TIMER_BROADCAST_INTERVAL_MS = 1000;
 const clampNormalized = (value: number) => Math.min(1, Math.max(0, value));
 const IDENTITY_STORAGE_KEY = "cozyfocus.identity";
 
-const createInitialTimerState = (mode: TimerState["mode"] = "solo"): TimerState => ({
+const createInitialTimerState = (
+  mode: TimerState["mode"] = "solo",
+  focusDuration: number = DEFAULT_FOCUS_DURATION_MS
+): TimerState => ({
   mode,
   phase: "focus",
-  remainingMs: FOCUS_DURATION_MS,
+  remainingMs: focusDuration,
   isRunning: false,
   lastUpdatedAt: Date.now(),
 });
@@ -70,15 +80,57 @@ export default function HomePage() {
   const remoteAvatarsRef = useRef<Map<string, RemoteAvatarState>>(new Map());
 
   const hoveredAvatarRef = useRef<string | null>(null);
+  const syncingColorRef = useRef(false);
 
   const [avatars, setAvatars] = useState<RenderAvatar[]>([]);
   const [hoveredAvatarId, setHoveredAvatarId] = useState<string | null>(null);
   const [onlineCount, setOnlineCount] = useState(1);
   const [infoCollapsed, setInfoCollapsed] = useState(false);
   const [timerCollapsed, setTimerCollapsed] = useState(false);
+  const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
+  const [isAvatarDrawerOpen, setIsAvatarDrawerOpen] = useState(false);
+  const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
+  const [parallax, setParallax] = useState({ x: 0, y: 0 });
+  const parallaxTargetRef = useRef({ x: 0, y: 0 });
+  const parallaxFrameRef = useRef<number | null>(null);
+  const [toastMessage, setToastMessage] = useState("");
+  const [toastColor, setToastColor] = useState<string | undefined>(undefined);
+  const [toastVisible, setToastVisible] = useState(false);
+  const previousPresenceIdsRef = useRef<Set<string>>(new Set());
+
+  const {
+    avatarColor,
+    setAvatarColor,
+    theme,
+    setTheme,
+    ambientVolume,
+    setAmbientVolume,
+    focusSessionMinutes,
+    setFocusSessionMinutes,
+    reducedMotion,
+    setReducedMotion,
+    highContrast,
+    setHighContrast,
+  } = useUIStore(
+    useShallow((state) => ({
+      avatarColor: state.avatarColor,
+      setAvatarColor: state.setAvatarColor,
+      theme: state.theme,
+      setTheme: state.setTheme,
+      ambientVolume: state.ambientVolume,
+      setAmbientVolume: state.setAmbientVolume,
+      focusSessionMinutes: state.focusSessionMinutes,
+      setFocusSessionMinutes: state.setFocusSessionMinutes,
+      reducedMotion: state.reducedMotion,
+      setReducedMotion: state.setReducedMotion,
+      highContrast: state.highContrast,
+      setHighContrast: state.setHighContrast,
+    }))
+  );
+  const focusDurationMs = focusSessionMinutes * 60 * 1000;
 
   const [timerState, setTimerState] = useState<TimerState>(() =>
-    createInitialTimerState("solo")
+    createInitialTimerState("solo", focusDurationMs)
   );
   const timerRef = useRef<TimerState>(timerState);
   const sharedTimerSnapshotRef = useRef<TimerState | null>(null);
@@ -124,9 +176,70 @@ export default function HomePage() {
     window.localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(identity));
   }, [identity, showWelcome]);
 
+  // Sync identity.color → avatarColor only when a new identity loads (track by guestId)
+  const hasSyncedIdentityColorRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!identity?.color || !identity.guestId) return;
+    // Only sync once per identity guestId to avoid loops
+    if (hasSyncedIdentityColorRef.current === identity.guestId) return;
+    if (identity.color.toLowerCase() !== avatarColor.toLowerCase()) {
+      setAvatarColor(identity.color);
+    }
+    hasSyncedIdentityColorRef.current = identity.guestId;
+  }, [identity?.guestId, setAvatarColor]); // Only depend on guestId changing (new identity), not color
+
+  // Sync avatarColor → identity.color (when user changes avatar color via drawer/settings)
+  useEffect(() => {
+    if (!identity || syncingColorRef.current) return;
+    if (identity.color.toLowerCase() === avatarColor.toLowerCase()) {
+      return;
+    }
+    // Only update if colors don't match and we're not currently syncing
+    syncingColorRef.current = true;
+    setIdentity((prev) => {
+      if (!prev) {
+        syncingColorRef.current = false;
+        return prev;
+      }
+      syncingColorRef.current = false;
+      return { ...prev, color: avatarColor };
+    });
+  }, [avatarColor]); // Only depend on avatarColor, not identity
+
   useEffect(() => {
     timerRef.current = timerState;
   }, [timerState]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const body = document.body;
+    body.dataset.theme = theme;
+    body.dataset.contrast = highContrast ? "high" : "normal";
+    body.dataset.motion = reducedMotion ? "reduced" : "full";
+  }, [theme, highContrast, reducedMotion]);
+
+  useEffect(() => {
+    setTimerState((prev) => {
+      if (prev.phase !== "focus") return prev;
+      const targetRemaining = prev.isRunning
+        ? Math.min(prev.remainingMs, focusDurationMs)
+        : focusDurationMs;
+      if (targetRemaining === prev.remainingMs) {
+        return prev;
+      }
+      const next: TimerState = {
+        ...prev,
+        remainingMs: targetRemaining,
+        lastUpdatedAt: Date.now(),
+      };
+      timerRef.current = next;
+      if (next.mode === "shared") {
+        sharedTimerSnapshotRef.current = next;
+      }
+      return next;
+    });
+  }, [focusDurationMs]);
+
 
   const updateTimerState = useCallback(
     (
@@ -164,13 +277,13 @@ export default function HomePage() {
     const next = updateTimerState(
       (prev) => {
         if (prev.mode === "shared") {
-          return createInitialTimerState("solo");
+          return createInitialTimerState("solo", focusDurationMs);
         }
         const snapshot = sharedTimerSnapshotRef.current;
         if (snapshot) {
           return { ...snapshot, mode: "shared" };
         }
-        return createInitialTimerState("shared");
+        return createInitialTimerState("shared", focusDurationMs);
       },
       { broadcast: false }
     );
@@ -194,7 +307,7 @@ export default function HomePage() {
     } else {
       sharedTimerSnapshotRef.current = null;
     }
-  }, [identity, showWelcome, updateTimerState]);
+  }, [focusDurationMs, identity, showWelcome, updateTimerState]);
 
   const handleStartStop = useCallback(() => {
     ensureAmbientPlayback();
@@ -209,25 +322,25 @@ export default function HomePage() {
       (prev) => ({
         ...prev,
         phase: "focus",
-        remainingMs: FOCUS_DURATION_MS,
+        remainingMs: focusDurationMs,
         isRunning: false,
       }),
       { broadcast: true }
     );
-  }, [updateTimerState]);
+  }, [focusDurationMs, updateTimerState]);
 
   const handleSkipPhase = useCallback(() => {
     updateTimerState((prev) => {
       const nextPhase = prev.phase === "focus" ? "break" : "focus";
       const duration =
-        nextPhase === "focus" ? FOCUS_DURATION_MS : BREAK_DURATION_MS;
+        nextPhase === "focus" ? focusDurationMs : BREAK_DURATION_MS;
       return {
         ...prev,
         phase: nextPhase,
         remainingMs: duration,
       };
     });
-  }, [updateTimerState]);
+  }, [focusDurationMs, updateTimerState]);
 
   const setTargetFromPoint = useCallback((clientX: number, clientY: number) => {
     const container = containerRef.current;
@@ -283,12 +396,14 @@ export default function HomePage() {
     const handlePresenceSync = () => {
       const presenceState = channel.presenceState<AvatarPresence>();
       const nextRemotes = new Map<string, RemoteAvatarState>();
+      const currentPresenceIds = new Set<string>();
       let participantCount = 0;
 
       Object.values(presenceState).forEach((connections) => {
         participantCount += connections.length;
         connections.forEach((presence) => {
           if (!presence?.id || presence.id === resolvedGuestId) return;
+          currentPresenceIds.add(presence.id);
           const normalizedX = clampNormalized(presence.x);
           const normalizedY = clampNormalized(presence.y);
           const existing = remoteAvatarsRef.current.get(presence.id);
@@ -314,6 +429,34 @@ export default function HomePage() {
         });
       });
 
+      // Detect joins and leaves (only after initial load)
+      if (previousPresenceIdsRef.current.size > 0) {
+        // Check for new joins
+        currentPresenceIds.forEach((id) => {
+          if (!previousPresenceIdsRef.current.has(id)) {
+            const newcomer = nextRemotes.get(id);
+            if (newcomer) {
+              setToastMessage(`${newcomer.name} joined 💛`);
+              setToastColor(newcomer.color);
+              setToastVisible(true);
+            }
+          }
+        });
+
+        // Check for leaves
+        previousPresenceIdsRef.current.forEach((id) => {
+          if (!currentPresenceIds.has(id)) {
+            const leaver = remoteAvatarsRef.current.get(id);
+            if (leaver) {
+              setToastMessage(`${leaver.name} left`);
+              setToastColor(leaver.color);
+              setToastVisible(true);
+            }
+          }
+        });
+      }
+
+      previousPresenceIdsRef.current = currentPresenceIds;
       remoteAvatarsRef.current = nextRemotes;
       setOnlineCount(participantCount > 0 ? participantCount : 1);
     };
@@ -465,7 +608,7 @@ export default function HomePage() {
           if (remaining === 0) {
             phase = timer.phase === "focus" ? "break" : "focus";
             remaining =
-              phase === "focus" ? FOCUS_DURATION_MS : BREAK_DURATION_MS;
+              phase === "focus" ? focusDurationMs : BREAK_DURATION_MS;
           }
           const updatedTimer: TimerState = {
             ...timer,
@@ -508,6 +651,19 @@ export default function HomePage() {
     () => avatars.filter((avatar) => !avatar.isSelf),
     [avatars]
   );
+  const playerList = useMemo(() => {
+    const isSharedFocus =
+      timerState.isRunning && timerState.phase === "focus" && sharedActive;
+    const isSoloFocus =
+      timerState.isRunning && timerState.phase === "focus" && !sharedActive;
+    return avatars.map((avatar) => ({
+      id: avatar.id,
+      name: avatar.name,
+      color: avatar.color,
+      isSelf: avatar.isSelf,
+      isFocusing: isSharedFocus || (isSoloFocus && avatar.isSelf),
+    }));
+  }, [avatars, sharedActive, timerState]);
 
   const handleWelcomeConfirm = useCallback(
     ({ displayName: nextName, color: nextColor }: { displayName: string; color: string }) => {
@@ -557,20 +713,30 @@ export default function HomePage() {
         <div className="pointer-events-none absolute bottom-[18%] left-[30%] h-80 w-80 rounded-full bg-[#f973af1a] blur-3xl" />
 
         <div className="absolute left-12 top-12 flex w-[min(360px,90vw)] flex-col gap-6 text-sm md:left-16 md:top-14">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[0.7rem] uppercase tracking-[0.35em] text-slate-100/80 shadow-glass-sm">
+          <button
+            type="button"
+            onClick={() => setIsPlayerModalOpen(true)}
+            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[0.7rem] uppercase tracking-[0.28em] text-slate-100/85 shadow-glass-sm transition duration-200 hover:border-white/20 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+          >
             <span className="h-2 w-2 rounded-full bg-twilight-ember/90 animate-pulse-soft shadow-[0_0_10px_rgba(252,211,77,0.65)]" />
             {onlineLabel}
-          </div>
+          </button>
           <div className="rounded-glass border border-white/10 bg-[rgba(15,23,42,0.78)] p-6 shadow-glass-lg backdrop-blur-lounge">
             <h1 className="text-lg font-semibold tracking-[0.08em] text-parchment md:text-xl">
-              CozyFocus
+              CozyFocus 🌙
             </h1>
-            <p className="mt-3 text-sm leading-relaxed text-slate-100/80">
-              A lofi study lounge where gentle avatars drift together, share focus
-              energy, and wander a twilight room inspired by Orbis.
+            <p className="mt-3 text-xs tracking-[0.18em] text-slate-300/70">
+              {onlineCount === 1
+                ? "Just you for now"
+                : `${onlineCount - 1} ${onlineCount === 2 ? 'other is' : 'others are'} focusing nearby`}
             </p>
-            <p className="mt-3 text-xs uppercase tracking-[0.28em] text-slate-200/70">
-              You are {displayName}. Click to roam.
+            <p className="mt-4 text-sm leading-relaxed text-slate-100/80" style={{ lineHeight: 1.6 }}>
+              A quiet space to study together.
+              <br />
+              Just you, soft music, and gentle company.
+            </p>
+            <p className="mt-4 text-xs tracking-[0.18em] text-slate-300/70">
+              Hey there, {displayName} · Tap anywhere to wander 🌙
             </p>
             <AmbientPlayer
               ref={ambientPlayerRef}
@@ -602,12 +768,23 @@ export default function HomePage() {
           ))}
         </div>
 
+        <button
+          type="button"
+          onClick={() => setIsSettingsDrawerOpen(true)}
+          className="group absolute bottom-12 left-8 flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 md:bottom-16 md:left-16"
+        >
+          <Settings2 className="h-4 w-4 transition duration-150 group-hover:text-[#E8C877]" />
+          <span className="text-[0.68rem] uppercase tracking-[0.26em]">
+            Settings
+          </span>
+        </button>
+
         <div className="absolute bottom-12 right-8 w-full max-w-xs md:bottom-16 md:right-16">
           <PomodoroPanel
             mode={timerState.mode}
             phase={timerState.phase}
             remainingMs={timerState.remainingMs}
-            focusDurationMs={FOCUS_DURATION_MS}
+            focusDurationMs={focusDurationMs}
             breakDurationMs={BREAK_DURATION_MS}
             isRunning={timerState.isRunning}
             onToggleMode={handleToggleMode}
@@ -623,6 +800,32 @@ export default function HomePage() {
           />
         </div>
       </div>
+      <PlayerListModal
+        open={isPlayerModalOpen}
+        onClose={() => setIsPlayerModalOpen(false)}
+        participants={playerList}
+      />
+      <AvatarDrawer
+        open={isAvatarDrawerOpen}
+        onClose={() => setIsAvatarDrawerOpen(false)}
+        initialColor={avatarColor}
+        onSave={(hex) => setAvatarColor(hex)}
+        onRandomize={() => pickAvatarColor()}
+      />
+      <SettingsDrawer
+        open={isSettingsDrawerOpen}
+        onClose={() => setIsSettingsDrawerOpen(false)}
+        theme={theme}
+        onThemeChange={setTheme}
+        ambientVolume={ambientVolume}
+        onAmbientVolumeChange={setAmbientVolume}
+        focusSessionMinutes={focusSessionMinutes}
+        onFocusSessionChange={setFocusSessionMinutes}
+        reducedMotion={reducedMotion}
+        onReducedMotionChange={setReducedMotion}
+        highContrast={highContrast}
+        onHighContrastChange={setHighContrast}
+      />
       {identity && (
         <WelcomeModal
           open={showWelcome}
@@ -631,6 +834,13 @@ export default function HomePage() {
           onConfirm={handleWelcomeConfirm}
         />
       )}
+      <Toast
+        message={toastMessage}
+        visible={toastVisible}
+        onDismiss={() => setToastVisible(false)}
+        color={toastColor}
+        duration={3000}
+      />
     </main>
   );
 }
