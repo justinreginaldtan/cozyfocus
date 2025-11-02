@@ -44,6 +44,7 @@ const PHASE_LABEL = {
 
 export function PomodoroPanel(props: PomodoroPanelProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const companionCount = props.companionCount ?? 1;
 
   const totalDurationMs =
     props.phase === "focus" ? props.focusDurationMs : props.breakDurationMs;
@@ -62,14 +63,14 @@ export function PomodoroPanel(props: PomodoroPanelProps) {
     if (props.mode !== "shared") {
       return props.isRunning ? "Focusing." : "Ready to focus?";
     }
-    if (props.companionCount > 1) {
-      const others = props.companionCount - 1;
+    if (companionCount > 1) {
+      const others = companionCount - 1;
       return others === 1
         ? "With one companion."
         : `With ${others} companions.`;
     }
     return props.isRunning ? "Focusing together." : "Ready to join?";
-  }, [props.mode, props.isRunning, props.companionCount]);
+  }, [props.mode, props.isRunning, companionCount]);
 
   const handleTimeChange = (amount: number) => {
     if (props.phase === 'focus') {
