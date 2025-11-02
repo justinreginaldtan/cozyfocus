@@ -822,7 +822,7 @@ export default function HomePage() {
         </div>
 
         {/* Timer - top right */}
-        <div className="absolute right-12 top-12 w-full max-w-xs md:right-16 md:top-14">
+        <div className="absolute top-12 right-8 w-full max-w-xs md:top-14 md:right-16">
           <PomodoroPanel
             mode={timerState.mode}
             phase={timerState.phase}

@@ -68,5 +68,16 @@ module.exports = {
       },
     },
   },
-  plugins: [],
+  plugins: [
+    require("tailwindcss/plugin")(function ({ addUtilities }) {
+      addUtilities({
+        ".text-shadow-soft": {
+          textShadow: "0 2px 12px rgba(0, 0, 0, 0.35)",
+        },
+        ".text-shadow-hard": {
+          textShadow: "0 1px 4px rgba(0, 0, 0, 0.5)",
+        },
+      });
+    }),
+  ],
 };

@@ -1,4 +1,13 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import {
+  Play,
+  Pause,
+  SkipForward,
+  RotateCcw,
+  Users,
+  User,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 
 type PomodoroPanelProps = {
   mode: "solo" | "shared";
@@ -21,17 +30,6 @@ const PHASE_LABEL = {
   break: "Breathe",
 } as const;
 
-const HINT_COPY = {
-  solo: {
-    running: "Settling in for focus.",
-    idle: "Your own rhythm. Join shared when you want warmth.",
-  },
-  shared: {
-    running: "Breathing together. Two or more hearts stay in sync.",
-    idle: "Everyone sees this timer. Tap start when you’re ready.",
-  },
-} as const;
-
 export function PomodoroPanel({
   mode,
   phase,
@@ -47,11 +45,11 @@ export function PomodoroPanel({
   companionCount = 1,
   sharedParticipants = [],
 }: PomodoroPanelProps) {
-  // Determine allotted duration for the current phase to drive progress visuals.
+  const [isHovered, setIsHovered] = useState(false);
+
   const totalDurationMs =
     phase === "focus" ? focusDurationMs : breakDurationMs;
   const clampedRemaining = Math.max(0, Math.min(remainingMs, totalDurationMs));
-  const completion = 1 - clampedRemaining / totalDurationMs;
 
   const formattedTime = useMemo(() => {
     const totalSeconds = Math.ceil(clampedRemaining / 1000);
@@ -62,116 +60,127 @@ export function PomodoroPanel({
     return `${minutes}:${seconds}`;
   }, [clampedRemaining]);
 
-  const isFocus = phase === "focus";
-  const panelTone = isFocus
-    ? "from-twilight-lagoon/35 via-twilight-veil to-twilight-veil"
-    : "from-twilight-ember/30 via-twilight-veil to-twilight-veil";
-
   const hint = useMemo(() => {
     if (mode !== "shared") {
-      return HINT_COPY.solo[isRunning ? "running" : "idle"];
+      return isRunning ? "Focusing." : "Ready to focus?";
     }
-
     if (companionCount > 1) {
       const others = companionCount - 1;
       return others === 1
-        ? "Breathing together with one companion."
-        : `Breathing together with ${others} companions.`;
+        ? "With one companion."
+        : `With ${others} companions.`;
     }
-
-    return HINT_COPY.shared[isRunning ? "running" : "idle"];
+    return isRunning ? "Focusing together." : "Ready to join?";
   }, [mode, isRunning, companionCount]);
 
   return (
-    <section className="relative z-10 w-full max-w-xs rounded-glass border border-white/10 bg-[rgba(15,23,42,0.78)] p-6 shadow-glass-lg backdrop-blur-lounge transition-all duration-300">
-      <div className="pointer-events-none absolute inset-px rounded-glass bg-gradient-to-br from-white/4 via-white/0 to-white/5" />
-      {sharedActive && (
-        <div className="relative z-20 mb-4 flex items-center justify-between rounded-full border border-white/15 bg-white/10 px-4 py-2 text-[0.65rem] uppercase tracking-[0.32em] text-slate-100/80 shadow-[0_12px_24px_rgba(10,18,35,0.45)] transition">
-          <span>Studying together</span>
-          <span className="flex items-center gap-1 text-[0.62rem] tracking-[0.2em]">
-            <span className="flex items-center gap-1">
-              {sharedParticipants.slice(0, 3).map((participant) => (
-                <span
-                  key={participant.id}
-                  className="flex h-6 w-6 items-center justify-center rounded-full border border-white/20 bg-white/10"
-                >
-                  <span
-                    className="h-3 w-3 rounded-full shadow-[0_0_10px_rgba(252,211,77,0.45)]"
-                    style={{ backgroundColor: participant.color }}
-                  />
-                </span>
-              ))}
-              {sharedParticipants.length > 3 && (
-                <span className="flex h-6 items-center rounded-full border border-white/20 bg-white/10 px-2 text-[0.6rem]">
-                  +{sharedParticipants.length - 3}
-                </span>
-              )}
-            </span>
-            {companionCount}
-          </span>
-        </div>
-      )}
-
-      <header className="relative z-10 mb-5 flex items-center justify-between gap-3 text-xs text-slate-200/70">
-        <span className="whitespace-nowrap tracking-[0.18em]">
-          {mode === "solo" ? "Focusing alone 🌙" : "Studying together 💛"}
-        </span>
-        <button
-          type="button"
-          onClick={onToggleMode}
-          className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.65rem] font-medium text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-          aria-label={`Switch timer mode (currently ${mode})`}
-        >
-          {mode === "shared" ? "Focus solo?" : "Join others?"}
-        </button>
-      </header>
-
-      <div
-        className={`relative z-10 mx-auto grid h-[190px] w-[190px] place-items-center rounded-full border border-white/5 bg-gradient-to-br ${panelTone} p-4 shadow-inner`}
-        style={{
-          background: `conic-gradient(#fcd34d ${completion * 360}deg, rgba(248, 250, 252, 0.18) ${
-            completion * 360
-          }deg 360deg)`,
-        }}
-      >
-        <div className="flex h-full w-full flex-col items-center justify-center rounded-full border border-white/10 bg-[rgba(15,23,42,0.92)] shadow-[inset_0_0_26px_rgba(14,116,144,0.12)] transition-colors duration-500">
-          <span className="text-xs uppercase tracking-[0.3em] text-slate-100/70">
-            {PHASE_LABEL[phase]}
-          </span>
-          <span className="text-[2.5rem] font-semibold tracking-[0.18em] text-parchment">
+    <motion.div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+      className="relative flex w-full flex-col items-end"
+    >
+      <div className="flex cursor-default items-center gap-3 text-right">
+        <div className="flex flex-col items-end">
+          <span className="text-4xl font-semibold tracking-tighter text-parchment text-shadow-hard">
             {formattedTime}
           </span>
+          <span className="text-xs uppercase tracking-[0.2em] text-slate-100/70 text-shadow-soft">
+            {PHASE_LABEL[phase]}
+          </span>
         </div>
       </div>
 
-      <div className="relative z-10 mt-6 flex items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onStartStop}
-          className="flex-1 rounded-full bg-twilight-ember/80 px-4 py-2 text-sm font-semibold text-twilight shadow-glass-sm transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-twilight-ember/60"
-          aria-pressed={isRunning}
-        >
-          {isRunning ? "Pause" : "Start"}
-        </button>
-        <button
-          type="button"
-          onClick={onSkipPhase}
-          className="px-3 py-2 text-sm font-medium text-slate-300/70 transition duration-200 hover:text-slate-100 focus-visible:outline-none focus-visible:underline"
-        >
-          Skip
-        </button>
-        <button
-          type="button"
-          onClick={onReset}
-          className="px-3 py-2 text-sm font-medium text-slate-300/70 transition duration-200 hover:text-slate-100 focus-visible:outline-none focus-visible:underline"
-        >
-          Reset
-        </button>
-      </div>
+      <AnimatePresence>
+        {isHovered && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+            className="absolute top-full mt-4 w-[280px] rounded-glass border border-white/10 bg-slate-900/50 p-4 shadow-glass-lg backdrop-blur-lg"
+          >
+            <header className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs tracking-[0.18em] text-slate-200/80">
+                {mode === "solo" ? (
+                  <>
+                    <User className="h-3 w-3" />
+                    <span>Solo Focus</span>
+                  </>
+                ) : (
+                  <>
+                    <Users className="h-3 w-3 text-twilight-ember" />
+                    <span className="text-twilight-ember">
+                      Shared Focus
+                    </span>
+                  </>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onToggleMode}
+                className="rounded-full border border-white/15 bg-white/5 px-3 py-1 text-[0.65rem] font-medium text-slate-100 transition hover:border-white/25 hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+                aria-label={`Switch timer mode (currently ${mode})`}
+              >
+                {mode === "shared" ? "Go Solo" : "Join Shared"}
+              </button>
+            </header>
 
-      <p className="relative z-10 mt-4 text-xs leading-relaxed text-slate-100/70">
-        {hint}
-      </p>
-    </section>
+            {sharedActive && companionCount > 1 && (
+              <div className="mt-3 flex items-center gap-2">
+                <span className="flex -space-x-2">
+                  {sharedParticipants.slice(0, 4).map((p) => (
+                    <div
+                      key={p.id}
+                      className="h-5 w-5 rounded-full border-2 border-slate-800"
+                      style={{ backgroundColor: p.color }}
+                      title="Participant"
+                    />
+                  ))}
+                </span>
+                {sharedParticipants.length > 4 && (
+                  <span className="text-xs text-slate-300/70">
+                    +{sharedParticipants.length - 4} more
+                  </span>
+                )}
+              </div>
+            )}
+
+            <div className="mt-4 flex items-center justify-between gap-2 rounded-full bg-slate-900/50 p-1">
+              <button
+                type="button"
+                onClick={onStartStop}
+                className="flex-1 rounded-full bg-twilight-ember/80 px-4 py-2 text-sm font-semibold text-twilight shadow-glass-sm transition-transform duration-200 hover:scale-[1.03] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-twilight-ember/60"
+                aria-pressed={isRunning}
+              >
+                {isRunning ? (
+                  <Pause className="mx-auto h-5 w-5" />
+                ) : (
+                  <Play className="mx-auto h-5 w-5" />
+                )}
+              </button>
+              <button
+                type="button"
+                onClick={onSkipPhase}
+                className="rounded-full p-3 text-slate-300/70 transition duration-200 hover:bg-white/5 hover:text-slate-100 focus-visible:outline-none"
+                aria-label="Skip to next phase"
+              >
+                <SkipForward className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={onReset}
+                className="rounded-full p-3 text-slate-300/70 transition duration-200 hover:bg-white/5 hover:text-slate-100 focus-visible:outline-none"
+                aria-label="Reset timer"
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-3 px-2 text-center text-xs leading-relaxed text-slate-100/70">
+              {hint}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </motion.div>
   );
 }
