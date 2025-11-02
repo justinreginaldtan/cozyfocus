@@ -167,6 +167,44 @@ export default function HomePage() {
     window.localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(identity));
   }, [identity, showWelcome]);
 
+  // Check if info panel was previously dismissed
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const dismissed = window.localStorage.getItem(INFO_PANEL_DISMISSED_KEY);
+    if (dismissed === "true") {
+      setShowInfoPanel(false);
+    }
+  }, []);
+
+  // Auto-detect system accessibility preferences
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const body = document.body;
+    body.dataset.theme = "twilight"; // Fixed theme
+
+    // Detect reduced motion preference
+    const reducedMotionQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const updateReducedMotion = () => {
+      body.dataset.motion = reducedMotionQuery.matches ? "reduced" : "full";
+    };
+    updateReducedMotion();
+    reducedMotionQuery.addEventListener("change", updateReducedMotion);
+
+    // Detect contrast preference
+    const contrastQuery = window.matchMedia("(prefers-contrast: more)");
+    const updateContrast = () => {
+      body.dataset.contrast = contrastQuery.matches ? "high" : "normal";
+    };
+    updateContrast();
+    contrastQuery.addEventListener("change", updateContrast);
+
+    return () => {
+      reducedMotionQuery.removeEventListener("change", updateReducedMotion);
+      contrastQuery.removeEventListener("change", updateContrast);
+    };
+  }, []);
+
   // Sync identity.color → avatarColor only when a new identity loads (track by guestId)
   const hasSyncedIdentityColorRef = useRef<string | null>(null);
   useEffect(() => {
@@ -673,6 +711,13 @@ export default function HomePage() {
     []
   );
 
+  const handleDismissInfoPanel = useCallback(() => {
+    setShowInfoPanel(false);
+    if (typeof window !== "undefined") {
+      window.localStorage.setItem(INFO_PANEL_DISMISSED_KEY, "true");
+    }
+  }, []);
+
   return (
     <main className="relative min-h-screen overflow-hidden bg-twilight text-slate-100">
       <div
@@ -704,7 +749,18 @@ export default function HomePage() {
             <span className="h-2 w-2 rounded-full bg-twilight-ember/90 animate-pulse-soft shadow-[0_0_10px_rgba(252,211,77,0.65)]" />
             {onlineLabel}
           </button>
-          <div className="rounded-glass border border-white/10 bg-[rgba(15,23,42,0.78)] p-6 shadow-glass-lg backdrop-blur-lounge">
+          {showInfoPanel && (
+          <div className="relative rounded-glass border border-white/10 bg-[rgba(15,23,42,0.78)] p-6 shadow-glass-lg backdrop-blur-lounge">
+            <button
+              type="button"
+              onClick={handleDismissInfoPanel}
+              className="absolute right-4 top-4 rounded-full p-1.5 text-slate-300/60 transition hover:bg-white/10 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+              aria-label="Dismiss welcome panel"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
             <h1 className="text-lg font-semibold tracking-[0.08em] text-parchment md:text-xl">
               CozyFocus 🌙
             </h1>
@@ -721,13 +777,29 @@ export default function HomePage() {
             <p className="mt-4 text-xs tracking-[0.18em] text-slate-300/70">
               Hey there, {displayName} · Tap anywhere to wander 🌙
             </p>
-            <AmbientPlayer
-              ref={ambientPlayerRef}
-              src="/lofi.mp3"
-              songName="Lofi Study Beats"
-              className="mt-5"
-            />
           </div>
+          )}
+        </div>
+
+        {/* Settings button - bottom left */}
+        <button
+          type="button"
+          onClick={() => setIsSettingsDrawerOpen(true)}
+          className="group absolute bottom-12 left-8 flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 md:bottom-16 md:left-16"
+        >
+          <Settings2 className="h-4 w-4 transition duration-150 group-hover:text-[#E8C877]" />
+          <span className="text-[0.68rem] uppercase tracking-[0.26em]">
+            Settings
+          </span>
+        </button>
+
+        {/* Music player - bottom center */}
+        <div className="pointer-events-auto absolute bottom-8 left-1/2 w-full max-w-lg -translate-x-1/2 px-4 md:bottom-12">
+          <AmbientPlayer
+            ref={ambientPlayerRef}
+            src="/lofi.mp3"
+            songName="Lofi Study Beats"
+          />
         </div>
 
         <SharedAura active={sharedActive} participants={avatars} />
@@ -749,18 +821,8 @@ export default function HomePage() {
           ))}
         </div>
 
-        <button
-          type="button"
-          onClick={() => setIsSettingsDrawerOpen(true)}
-          className="group absolute bottom-12 left-8 flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 md:bottom-16 md:left-16"
-        >
-          <Settings2 className="h-4 w-4 transition duration-150 group-hover:text-[#E8C877]" />
-          <span className="text-[0.68rem] uppercase tracking-[0.26em]">
-            Settings
-          </span>
-        </button>
-
-        <div className="absolute bottom-12 right-8 w-full max-w-xs md:bottom-16 md:right-16">
+        {/* Timer - top right */}
+        <div className="absolute right-12 top-12 w-full max-w-xs md:right-16 md:top-14">
           <PomodoroPanel
             mode={timerState.mode}
             phase={timerState.phase}
