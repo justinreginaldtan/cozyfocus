@@ -3,14 +3,13 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { useShallow } from "zustand/react/shallow";
-import { Settings2 } from "lucide-react";
+import { Moon } from "lucide-react";
 
 import { AmbientPlayer, AmbientPlayerHandle } from "@/components/AmbientPlayer";
 import { AvatarDrawer } from "@/components/AvatarDrawer";
 import { AvatarSprite } from "@/components/AvatarSprite";
-import { PlayerListModal } from "@/components/PlayerListModal";
+import { CornerstoneMenu } from "@/components/CornerstoneMenu";
 import { PomodoroPanel } from "@/components/PomodoroPanel";
-import { SettingsDrawer } from "@/components/SettingsDrawer";
 import { SharedAura } from "@/components/SharedAura";
 import { Toast } from "@/components/Toast";
 import { WelcomeModal } from "@/components/WelcomeModal";
@@ -42,7 +41,6 @@ const TIMER_BROADCAST_INTERVAL_MS = 1000;
 
 const clampNormalized = (value: number) => Math.min(1, Math.max(0, value));
 const IDENTITY_STORAGE_KEY = "cozyfocus.identity";
-const INFO_PANEL_DISMISSED_KEY = "cozyfocus.infoPanelDismissed";
 
 const createInitialTimerState = (
   mode: TimerState["mode"] = "solo",
@@ -84,10 +82,8 @@ export default function HomePage() {
   const [avatars, setAvatars] = useState<RenderAvatar[]>([]);
   const [hoveredAvatarId, setHoveredAvatarId] = useState<string | null>(null);
   const [onlineCount, setOnlineCount] = useState(1);
-  const [showInfoPanel, setShowInfoPanel] = useState(true);
-  const [isPlayerModalOpen, setIsPlayerModalOpen] = useState(false);
+  const [isCornerstoneMenuOpen, setIsCornerstoneMenuOpen] = useState(false);
   const [isAvatarDrawerOpen, setIsAvatarDrawerOpen] = useState(false);
-  const [isSettingsDrawerOpen, setIsSettingsDrawerOpen] = useState(false);
   const [parallax, setParallax] = useState({ x: 0, y: 0 });
   const parallaxTargetRef = useRef({ x: 0, y: 0 });
   const parallaxFrameRef = useRef<number | null>(null);
@@ -166,15 +162,6 @@ export default function HomePage() {
     if (showWelcome) return;
     window.localStorage.setItem(IDENTITY_STORAGE_KEY, JSON.stringify(identity));
   }, [identity, showWelcome]);
-
-  // Check if info panel was previously dismissed
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const dismissed = window.localStorage.getItem(INFO_PANEL_DISMISSED_KEY);
-    if (dismissed === "true") {
-      setShowInfoPanel(false);
-    }
-  }, []);
 
   // Auto-detect system accessibility preferences
   useEffect(() => {
@@ -666,13 +653,12 @@ export default function HomePage() {
     };
   }, [breakDurationMs, focusDurationMs, identity, setTimerState, showWelcome]);
 
-  const onlineLabel = `${onlineCount} online`;
   const sharedActive = timerState.mode === "shared" && !showWelcome;
   const sharedParticipants = useMemo(
     () => avatars.filter((avatar) => !avatar.isSelf),
     [avatars]
   );
-  const playerList = useMemo(() => {
+  const participants = useMemo(() => {
     const isSharedFocus =
       timerState.isRunning && timerState.phase === "focus" && sharedActive;
     const isSoloFocus =
@@ -711,13 +697,6 @@ export default function HomePage() {
     []
   );
 
-  const handleDismissInfoPanel = useCallback(() => {
-    setShowInfoPanel(false);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(INFO_PANEL_DISMISSED_KEY, "true");
-    }
-  }, []);
-
   return (
     <main className="relative min-h-screen overflow-hidden bg-twilight text-slate-100">
       <div
@@ -740,56 +719,14 @@ export default function HomePage() {
         <div className="pointer-events-none absolute right-[12%] top-[28%] h-72 w-72 rounded-full bg-[#38bdf81a] blur-3xl" />
         <div className="pointer-events-none absolute bottom-[18%] left-[30%] h-80 w-80 rounded-full bg-[#f973af1a] blur-3xl" />
 
-        <div className="absolute left-12 top-12 flex w-[min(360px,90vw)] flex-col gap-6 text-sm md:left-16 md:top-14">
-          <button
-            type="button"
-            onClick={() => setIsPlayerModalOpen(true)}
-            className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/10 px-3 py-1 text-[0.7rem] uppercase tracking-[0.28em] text-slate-100/85 shadow-glass-sm transition duration-200 hover:border-white/20 hover:bg-white/15 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-          >
-            <span className="h-2 w-2 rounded-full bg-twilight-ember/90 animate-pulse-soft shadow-[0_0_10px_rgba(252,211,77,0.65)]" />
-            {onlineLabel}
-          </button>
-          {showInfoPanel && (
-          <div className="relative rounded-glass border border-white/10 bg-[rgba(15,23,42,0.78)] p-6 shadow-glass-lg backdrop-blur-lounge">
-            <button
-              type="button"
-              onClick={handleDismissInfoPanel}
-              className="absolute right-4 top-4 rounded-full p-1.5 text-slate-300/60 transition hover:bg-white/10 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
-              aria-label="Dismiss welcome panel"
-            >
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-            <h1 className="text-lg font-semibold tracking-[0.08em] text-parchment md:text-xl">
-              CozyFocus 🌙
-            </h1>
-            <p className="mt-3 text-xs tracking-[0.18em] text-slate-300/70">
-              {onlineCount === 1
-                ? "Just you for now"
-                : `${onlineCount - 1} ${onlineCount === 2 ? 'other is' : 'others are'} focusing nearby`}
-            </p>
-            <p className="mt-4 text-sm leading-relaxed text-slate-100/80" style={{ lineHeight: 1.6 }}>
-              A quiet space to study together.
-              <br />
-              Just you, soft music, and gentle company.
-            </p>
-            <p className="mt-4 text-xs tracking-[0.18em] text-slate-300/70">
-              Hey there, {displayName} · Tap anywhere to wander 🌙
-            </p>
-          </div>
-          )}
-        </div>
-
-        {/* Settings button - bottom left */}
         <button
           type="button"
-          onClick={() => setIsSettingsDrawerOpen(true)}
+          onClick={() => setIsCornerstoneMenuOpen(true)}
           className="group absolute bottom-12 left-8 flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30 md:bottom-16 md:left-16"
         >
-          <Settings2 className="h-4 w-4 transition duration-150 group-hover:text-[#E8C877]" />
+          <Moon className="h-4 w-4 transition duration-150 group-hover:text-[#E8C877]" />
           <span className="text-[0.68rem] uppercase tracking-[0.26em]">
-            Settings
+            Menu
           </span>
         </button>
 
@@ -840,10 +777,18 @@ export default function HomePage() {
           />
         </div>
       </div>
-      <PlayerListModal
-        open={isPlayerModalOpen}
-        onClose={() => setIsPlayerModalOpen(false)}
-        participants={playerList}
+      <CornerstoneMenu
+        open={isCornerstoneMenuOpen}
+        onClose={() => setIsCornerstoneMenuOpen(false)}
+        ambientVolume={ambientVolume}
+        onAmbientVolumeChange={setAmbientVolume}
+        focusSessionMinutes={focusSessionMinutes}
+        onFocusSessionChange={setFocusSessionMinutes}
+        breakSessionMinutes={breakSessionMinutes}
+        onBreakSessionChange={setBreakSessionMinutes}
+        participants={participants}
+        onlineCount={onlineCount}
+        displayName={displayName}
       />
       <AvatarDrawer
         open={isAvatarDrawerOpen}
@@ -851,16 +796,6 @@ export default function HomePage() {
         initialColor={avatarColor}
         onSave={(hex) => setAvatarColor(hex)}
         onRandomize={() => pickAvatarColor()}
-      />
-      <SettingsDrawer
-        open={isSettingsDrawerOpen}
-        onClose={() => setIsSettingsDrawerOpen(false)}
-        ambientVolume={ambientVolume}
-        onAmbientVolumeChange={setAmbientVolume}
-        focusSessionMinutes={focusSessionMinutes}
-        onFocusSessionChange={setFocusSessionMinutes}
-        breakSessionMinutes={breakSessionMinutes}
-        onBreakSessionChange={setBreakSessionMinutes}
       />
       {identity && (
         <WelcomeModal
