@@ -86,16 +86,16 @@ export function PomodoroPanel(props: PomodoroPanelProps) {
       onMouseLeave={() => setIsHovered(false)}
       className="relative flex w-full flex-col items-end"
     >
-      <div className="flex cursor-default items-center gap-3 text-right">
+        <div className="flex cursor-default items-center gap-3 text-right">
         <div className="flex flex-col items-end">
-          <span className="text-4xl font-semibold tracking-tighter text-parchment text-shadow-hard">
+          <span className="text-xl font-semibold tracking-tight text-parchment opacity-80 md:text-2xl">
             {formattedTime}
           </span>
-          <span className="text-xs uppercase tracking-[0.2em] text-slate-100/70 text-shadow-soft">
+          <span className="text-[0.7rem] tracking-[0.04em] text-slate-100/55">
             {PHASE_LABEL[props.phase]}
           </span>
         </div>
-      </div>
+        </div>
 
       <AnimatePresence>
         {isHovered && (

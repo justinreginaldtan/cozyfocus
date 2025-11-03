@@ -117,14 +117,14 @@ export const AmbientPlayer = forwardRef<AmbientPlayerHandle, AmbientPlayerProps>
 
     return (
       <div className="relative flex items-center gap-3 text-white">
-        <div className="flex flex-col justify-center w-48">
+        <div className="relative flex items-center w-64">
             <div className="w-full h-0.5 overflow-hidden rounded-full bg-white/20">
                 <div
                 className="h-full rounded-full bg-gradient-to-r from-[#E8C877] to-[#f7dba8] transition-all duration-150"
                 style={{ width: `${progress}%` }}
                 />
             </div>
-            <span className="text-xs text-shadow-soft font-medium text-slate-200/90 truncate mt-1.5">{songName}</span>
+            <span className="pointer-events-none absolute left-0 top-full mt-2 w-full truncate text-center text-[0.65rem] font-medium leading-4 text-slate-200/80 text-shadow-soft">{songName}</span>
         </div>
 
         <button

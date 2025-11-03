@@ -729,7 +729,7 @@ export default function HomePage() {
           <button
             type="button"
             onClick={() => setIsCornerstoneMenuOpen(true)}
-            className="group flex items-center gap-2 rounded-full border border-white/15 bg-white/5 p-2.5 text-sm text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
+            className="group flex h-10 w-10 items-center justify-center rounded-full border border-white/15 bg-white/5 text-slate-100 shadow-glass-sm transition duration-150 hover:border-white/25 hover:bg-white/12 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/30"
             aria-label="Open menu"
           >
             <Moon className="h-5 w-5 transition duration-150 group-hover:text-[#E8C877]" />
