@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { COZY_AVATAR_COLORS } from "@/lib/utils";
+import { authService, authValidation } from "@/lib/auth/authService";
 
 type WelcomeModalProps = {
   open: boolean;
   initialName: string;
   initialColor: string;
-  onConfirm: (identity: { displayName: string; color: string }) => void;
+  onConfirm: (identity: { displayName: string; color: string; userId?: string }) => void;
+  showAuthOptions?: boolean; // NEW: Show auth before guest customization
 };
 
 const COLOR_NAMES: Record<string, string> = {
@@ -20,9 +22,15 @@ const COLOR_NAMES: Record<string, string> = {
   "#A5F3FC": "Lagoon Drift",
 };
 
-export function WelcomeModal({ open, initialName, initialColor, onConfirm }: WelcomeModalProps) {
+export function WelcomeModal({ open, initialName, initialColor, onConfirm, showAuthOptions = false }: WelcomeModalProps) {
   const [name, setName] = useState(initialName);
   const [color, setColor] = useState(initialColor);
+  const [showAuth, setShowAuth] = useState(showAuthOptions);
+  const [authMode, setAuthMode] = useState<'signin' | 'signup'>('signin');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [authLoading, setAuthLoading] = useState(false);
+  const [authError, setAuthError] = useState('');
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {

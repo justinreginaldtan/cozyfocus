@@ -1,7 +1,9 @@
 import { AnimatePresence, motion } from "framer-motion";
-import { X, Settings, Users, Info, Clock, Coffee, Droplets, UserCircle, LayoutGrid, Palette } from "lucide-react";
+import { X, Settings, Users, Info, Clock, Coffee, Droplets, UserCircle, LayoutGrid, Palette, LogOut, Mail } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import { COZY_AVATAR_COLORS } from "@/lib/utils";
+import { authService } from "@/lib/auth/authService";
+import { supabase } from "@/lib/supabaseClient";
 
 // Props for the Players tab
 type Participant = {
@@ -259,6 +261,154 @@ function SettingsContent(props: Omit<CornerstoneMenuProps, 'open' | 'onClose' | 
   );
 }
 
+// Account Tab Content
+function AccountContent({ onClose }: { onClose: () => void }) {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userEmail, setUserEmail] = useState('');
+  const [userName, setUserName] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setIsAuthenticated(true);
+        setUserEmail(session.user.email || '');
+        setUserName(session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User');
+      }
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, []);
+
+  const handleSignOut = async () => {
+    await authService.signOut();
+    onClose();
+    window.location.reload(); // Reload to show welcome modal
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-pulse-soft text-parchment">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <div className="space-y-6">
+        <div className="text-center space-y-4">
+          <div className="w-16 h-16 mx-auto rounded-full bg-twilight-ember/20 flex items-center justify-center">
+            <UserCircle className="w-8 h-8 text-twilight-ember" />
+          </div>
+          <div>
+            <h3 className="text-lg font-semibold text-parchment mb-2">You're browsing as a guest</h3>
+            <p className="text-sm text-slate-300/70 leading-relaxed">
+              Sign in to save your focus sessions, track your progress, and access your data across devices.
+            </p>
+          </div>
+        </div>
+
+        <div className="p-4 rounded-lg bg-twilight-overlay border border-white/10">
+          <h4 className="text-sm font-medium text-parchment mb-2">✨ Benefits of signing in:</h4>
+          <ul className="space-y-2 text-sm text-slate-300/80">
+            <li className="flex items-start gap-2">
+              <span className="text-twilight-ember mt-0.5">•</span>
+              <span>Save your focus session history</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-twilight-ember mt-0.5">•</span>
+              <span>Track your progress and streaks</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-twilight-ember mt-0.5">•</span>
+              <span>Access from any device</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-twilight-ember mt-0.5">•</span>
+              <span>Unlock pro features (coming soon)</span>
+            </li>
+          </ul>
+        </div>
+
+        <button
+          onClick={() => {
+            onClose();
+            // Reload to show auth modal
+            window.location.reload();
+          }}
+          className="w-full rounded-full bg-twilight-ember/90 px-6 py-3 text-sm font-semibold text-twilight shadow-[0_18px_36px_rgba(252,211,77,0.45)] transition hover:scale-[1.02] active:scale-[0.98]"
+        >
+          Sign In / Sign Up
+        </button>
+      </div>
+    );
+  }
+
+  // Authenticated user view
+  return (
+    <div className="space-y-6">
+      {/* User Info Card */}
+      <div className="p-6 rounded-glass bg-glass-surface border border-glass-border">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-full bg-twilight-ember flex items-center justify-center text-lg font-bold text-twilight">
+            {userName.charAt(0).toUpperCase()}
+          </div>
+          <div className="flex-1 min-w-0">
+            <h3 className="text-base font-semibold text-parchment mb-1">{userName}</h3>
+            <p className="text-sm text-slate-300/70 truncate flex items-center gap-2">
+              <Mail className="w-3.5 h-3.5" />
+              {userEmail}
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Account Status */}
+      <div className="p-4 rounded-lg bg-twilight-overlay border border-white/10">
+        <div className="flex items-center justify-between mb-3">
+          <span className="text-xs uppercase tracking-wider text-slate-300/70">Account Status</span>
+          <span className="px-2 py-1 rounded-full bg-green-500/20 text-green-400 text-xs font-medium">
+            Active
+          </span>
+        </div>
+        <p className="text-sm text-slate-300/80">
+          You're signed in and your sessions are being saved.
+        </p>
+      </div>
+
+      {/* Quick Stats (placeholder) */}
+      <div className="grid grid-cols-2 gap-3">
+        <div className="p-4 rounded-lg bg-twilight-overlay border border-white/10 text-center">
+          <div className="text-2xl font-bold text-twilight-ember mb-1">—</div>
+          <div className="text-xs text-slate-300/70">Focus Sessions</div>
+        </div>
+        <div className="p-4 rounded-lg bg-twilight-overlay border border-white/10 text-center">
+          <div className="text-2xl font-bold text-twilight-lagoon mb-1">—</div>
+          <div className="text-xs text-slate-300/70">Total Minutes</div>
+        </div>
+      </div>
+
+      {/* Actions */}
+      <div className="space-y-2 pt-4 border-t border-white/10">
+        <button
+          onClick={handleSignOut}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-full bg-twilight-blush/20 text-twilight-blush hover:bg-twilight-blush/30 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          <span className="text-sm font-medium">Sign Out</span>
+        </button>
+
+        <p className="text-center text-xs text-slate-300/50">
+          Signing out will return you to the welcome screen
+        </p>
+      </div>
+    </div>
+  );
+}
+
 export function CornerstoneMenu(props: CornerstoneMenuProps) {
   const [activeTab, setActiveTab] = useState("players");
 
@@ -331,7 +481,7 @@ export function CornerstoneMenu(props: CornerstoneMenuProps) {
             <main className="flex-1 overflow-hidden p-6">
               {activeTab === "players" && <PlayersContent participants={props.participants} onlineCount={props.onlineCount} />}
               {activeTab === "avatar" && <AvatarContent {...props} />}
-              {activeTab === "account" && <div className="text-slate-400">Account features coming soon.</div>}
+              {activeTab === "account" && <AccountContent onClose={props.onClose} />}
               {activeTab === "lobbies" && <div className="text-slate-400">Lobby switching coming soon.</div>}
               {activeTab === "about" && <AboutContent onlineCount={props.onlineCount} displayName={props.displayName} />}
               {activeTab === "settings" && <SettingsContent {...props} />}

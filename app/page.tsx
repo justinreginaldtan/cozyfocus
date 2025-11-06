@@ -13,7 +13,7 @@ import { CornerstoneMenu } from "@/components/CornerstoneMenu";
 import { PomodoroPanel } from "@/components/PomodoroPanel";
 import { SharedAura } from "@/components/SharedAura";
 import { Toast } from "@/components/Toast";
-import { WelcomeModal } from "@/components/WelcomeModal";
+import { UnifiedWelcomeModal } from "@/components/UnifiedWelcomeModal";
 import { supabase } from "@/lib/supabaseClient";
 import type { AvatarPresence, RenderAvatar, TimerState } from "@/lib/types";
 import {
@@ -154,12 +154,32 @@ export default function HomePage() {
       }
     }
 
-    setIdentity({
-      guestId: createGuestId(),
-      displayName: createDisplayName(),
-      color: pickAvatarColor(),
-    });
-    setShowWelcome(true);
+    // Check for authenticated user first
+    const checkAuth = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session?.user) {
+        // User is authenticated!
+        console.log('[Auth] Authenticated user detected:', session.user.email);
+        setIdentity({
+          guestId: session.user.id, // Use real user ID
+          displayName: session.user.user_metadata?.display_name || session.user.email?.split('@')[0] || 'User',
+          color: session.user.user_metadata?.avatar_color || pickAvatarColor(),
+        });
+        setShowWelcome(false); // Skip welcome modal
+        return;
+      }
+
+      // Not authenticated - proceed with guest flow
+      setIdentity({
+        guestId: createGuestId(),
+        displayName: createDisplayName(),
+        color: pickAvatarColor(),
+      });
+      setShowWelcome(true);
+    };
+
+    checkAuth();
   }, [identity]);
 
   useEffect(() => {
@@ -820,7 +840,7 @@ export default function HomePage() {
         onRandomize={() => pickAvatarColor()}
       />
       {identity && (
-        <WelcomeModal
+        <UnifiedWelcomeModal
           open={showWelcome}
           initialName={identity.displayName}
           initialColor={identity.color}

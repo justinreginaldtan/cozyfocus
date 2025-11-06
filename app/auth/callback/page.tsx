@@ -24,7 +24,7 @@ export default function AuthCallbackPage() {
         if (error) {
           console.error('[Auth Callback] Error:', error);
           setStatus('❌ Authentication failed');
-          setTimeout(() => router.push('/test-auth'), 2000);
+          setTimeout(() => router.push('/'), 2000);
           return;
         }
 
@@ -32,16 +32,16 @@ export default function AuthCallbackPage() {
           console.log('[Auth Callback] Success! User:', data.session.user.email);
           setStatus('✅ Authentication successful! Redirecting...');
 
-          // Redirect to main app (or test page for now)
-          setTimeout(() => router.push('/test-auth'), 1000);
+          // Redirect to main app
+          setTimeout(() => router.push('/'), 1000);
         } else {
           setStatus('⚠️ No session found. Redirecting...');
-          setTimeout(() => router.push('/test-auth'), 2000);
+          setTimeout(() => router.push('/'), 2000);
         }
       } catch (err) {
         console.error('[Auth Callback] Exception:', err);
         setStatus('❌ Something went wrong');
-        setTimeout(() => router.push('/test-auth'), 2000);
+        setTimeout(() => router.push('/'), 2000);
       }
     };
 
