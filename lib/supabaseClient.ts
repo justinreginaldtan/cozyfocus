@@ -12,6 +12,8 @@ if (!supabaseUrl || !supabaseAnonKey) {
 // Create a single Supabase client instance that can be shared across the app.
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
-    persistSession: false,
+    persistSession: true, // Enable session persistence for auth
+    autoRefreshToken: true, // Automatically refresh tokens
+    detectSessionInUrl: true, // Detect auth redirects
   },
 });

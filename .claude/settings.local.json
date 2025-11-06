@@ -6,7 +6,9 @@
       "Bash(npm run build:*)",
       "Bash(npm install:*)",
       "Bash(lsof:*)",
-      "Bash(kill:*)"
+      "Bash(kill:*)",
+      "Bash(tree:*)",
+      "Bash(npm run dev:*)"
     ],
     "deny": [],
     "ask": []
